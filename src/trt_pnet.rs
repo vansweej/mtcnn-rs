@@ -3,16 +3,15 @@ use crate::helper::*;
 
 use image::imageops::*;
 use image::*;
-use ndarray::{array, s, stack, Array, Array1, Array2, Array3, Array5, Axis};
+use ndarray::prelude::*;
+use ndarray::{s, stack};
 use ndarray_image;
-use std::cmp;
-//use std::iter::FromIterator;
 use tensorrt_rs::context::ExecuteInput;
 use tensorrt_rs::engine::Engine;
-
+use tensorrt_rs::runtime::*;
 use std::fs::File;
 use std::io::Read;
-use tensorrt_rs::runtime::*;
+use std::cmp;
 
 pub struct TrtPnet {
     data_dims: (u32, u32, u32),
