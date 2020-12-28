@@ -65,6 +65,56 @@ impl TrtRnet {
         .unwrap();
         boxes_1x1
     }
+
+    pub fn detect(
+        &self,
+        image: &DynamicImage,
+        boxes: &Array2<f32>,
+        max_batch: u32,
+        threshold: f32,
+    ) {
+        const PIXEL_MEAN: f32 = 127.5;
+        const PIXEL_SCALE: f32 = 0.0078125;
+        // if max_batch > 256:
+        //     raise ValueError('Bad max_batch: %d' % max_batch)
+        // boxes = boxes[:max_batch]  # assuming boxes are sorted by score
+        // if boxes.shape[0] == 0:
+        //     return boxes
+
+        //display_image(image);
+        let mut crops: Vec<_> = vec![];
+        for (i, det) in boxes.axis_iter(Axis(0)).enumerate() {
+            let w = det[2] - det[0];
+            let h = det[3] - det[1];
+
+            let cropped_img = crop_imm(image, det[0] as u32, det[1] as u32, w as u32, h as u32);
+            let resized_img = resize(&cropped_img, 24, 24, FilterType::Nearest);
+            let rotated_img = rotate270(&resized_img);
+            let img = DynamicImage::ImageRgba8(rotated_img).to_rgb8();
+            crops.push(img);
+        }
+
+        let mut conv_crops: Vec<_> = vec![];
+        for crop in crops.iter() {
+            let mut im_array: ndarray_image::NdColor = ndarray_image::NdImage(crop).into();
+            im_array.swap_axes(0, 2);
+            im_array.swap_axes(1, 2);
+            let pre_processed = im_array.map(|&x| {
+                if x == 0 {
+                    0.0
+                } else {
+                    ((x as f32) - PIXEL_MEAN) * PIXEL_SCALE
+                }
+            });
+            conv_crops.push(pre_processed);
+        }
+        let x = Array::from_shape_vec(
+            (conv_crops.len(), 3, 24, 24),
+            conv_crops.iter().flatten().collect::<Vec<_>>(),
+        )
+        .unwrap();
+        println!("{:?}", x.dim());
+    }
 }
 
 #[cfg(test)]
@@ -79,5 +129,16 @@ mod tests {
         let boxes_1x1 = TrtRnet::convert_to_1x1(&boxes);
 
         assert_eq!(np_boxes_1x1, boxes_1x1);
+    }
+
+    #[test]
+    fn test_detect() {
+        let logger = Logger::new();
+        let rnet = TrtRnet::new("./test_resources/det2.engine", &logger).unwrap();
+
+        let rnet_img = image::open("test_resources/rnet_img.jpg").unwrap();
+        let np_boxes_1x1: Array2<f32> = read_npy("test_resources/boxes_1x1.npy").unwrap();
+
+        rnet.detect(&rnet_img, &np_boxes_1x1, 256, 0.7);
     }
 }
