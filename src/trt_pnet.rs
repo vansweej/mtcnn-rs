@@ -6,12 +6,12 @@ use image::*;
 use ndarray::prelude::*;
 use ndarray::{s, stack};
 use ndarray_image;
+use std::cmp;
+use std::fs::File;
+use std::io::Read;
 use tensorrt_rs::context::ExecuteInput;
 use tensorrt_rs::engine::Engine;
 use tensorrt_rs::runtime::*;
-use std::fs::File;
-use std::io::Read;
-use std::cmp;
 
 pub struct TrtPnet {
     data_dims: (u32, u32, u32),
@@ -61,15 +61,15 @@ impl TrtPnet {
         scales
     }
 
-    fn execute(&self, pnet_input: &Array3<f32>) -> (Array3<f32>, Array3<f32>) {
-        let im_input = ExecuteInput::Float(&pnet_input);
+    fn execute(&self, mut pnet_input: &mut Array3<f32>) -> (Array3<f32>, Array3<f32>) {
+        let im_input = ExecuteInput::Float(&mut pnet_input);
 
-        let prob1 = ndarray::Array3::<f32>::zeros((2, 350, 187));
-        let boxes = ndarray::Array3::<f32>::zeros((4, 350, 187));
-        let pnet_output = vec![ExecuteInput::Float(&boxes), ExecuteInput::Float(&prob1)];
+        let mut prob1 = ndarray::Array3::<f32>::zeros((2, 350, 187));
+        let mut boxes = ndarray::Array3::<f32>::zeros((4, 350, 187));
+        let pnet_output = vec![ExecuteInput::Float(&mut boxes), ExecuteInput::Float(&mut prob1)];
 
         let context = self.pnet_engine.create_execution_context();
-        context.execute(im_input, pnet_output, 3);
+        context.execute(im_input, pnet_output, None).unwrap();
 
         (prob1, boxes)
     }
@@ -317,7 +317,7 @@ impl TrtPnet {
         im_array.swap_axes(0, 2);
         im_array.swap_axes(1, 2);
 
-        let pre_processed = im_array.map(|&x| {
+        let mut pre_processed = im_array.map(|&x| {
             if x == 0 {
                 0.0
             } else {
@@ -325,7 +325,7 @@ impl TrtPnet {
             }
         });
 
-        let (prob1, boxes) = self.execute(&pre_processed);
+        let (prob1, boxes) = self.execute(&mut pre_processed);
     }
 }
 
@@ -426,12 +426,12 @@ mod tests {
         let logger = Logger::new();
         let pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
 
-        let np_im_data: Array3<f32> = read_npy("test_resources/im_data.npy").unwrap();
+        let mut np_im_data: Array3<f32> = read_npy("test_resources/im_data.npy").unwrap();
 
         let np_boxes: Array3<f32> = read_npy("test_resources/boxes.npy").unwrap();
         let np_prob1: Array3<f32> = read_npy("test_resources/prob1.npy").unwrap();
 
-        let (prob1, boxes) = pnet.execute(&np_im_data);
+        let (prob1, boxes) = pnet.execute(&mut np_im_data);
 
         assert_eq!(prob1.dim(), np_prob1.dim());
         assert_eq!(boxes.dim(), np_boxes.dim());
