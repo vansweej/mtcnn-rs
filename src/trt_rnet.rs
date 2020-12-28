@@ -6,11 +6,11 @@ use image::*;
 use ndarray::prelude::*;
 use ndarray::{s, stack};
 use ndarray_image;
+use std::fs::File;
+use std::io::Read;
 use tensorrt_rs::context::ExecuteInput;
 use tensorrt_rs::engine::Engine;
 use tensorrt_rs::runtime::*;
-use std::fs::File;
-use std::io::Read;
 
 pub struct TrtRnet {
     rnet_engine: Engine,
@@ -31,18 +31,33 @@ impl TrtRnet {
     }
 
     fn convert_to_1x1(boxes: &Array2<f32>) -> Array2<f32> {
-        let hh = boxes.axis_iter(Axis(0)).map(|v| v[3] - v[1] + 1.0).collect::<Vec<_>>();
-        let ww = boxes.axis_iter(Axis(0)).map(|v| v[2] - v[0] + 1.0).collect::<Vec<_>>();
-        let mm = hh.iter().zip(&ww).map(|v| v.0.max(*v.1)).collect::<Vec<_>>();
-        
-        let boxes_1x1_t = boxes.axis_iter(Axis(0)).enumerate()
-        .map(|(i, v)| [ 
-            f32::trunc(v[0] + ww[i] * 0.5 - mm[i] * 0.5), 
-            f32::trunc(v[1] + hh[i] * 0.5 - mm[i] * 0.5), 
-            f32::trunc((v[0] + ww[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0), 
-            f32::trunc((v[1] + hh[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0), 
-            v[4] ])
-        .collect::<Vec<_>>();
+        let hh = boxes
+            .axis_iter(Axis(0))
+            .map(|v| v[3] - v[1] + 1.0)
+            .collect::<Vec<_>>();
+        let ww = boxes
+            .axis_iter(Axis(0))
+            .map(|v| v[2] - v[0] + 1.0)
+            .collect::<Vec<_>>();
+        let mm = hh
+            .iter()
+            .zip(&ww)
+            .map(|v| v.0.max(*v.1))
+            .collect::<Vec<_>>();
+
+        let boxes_1x1_t = boxes
+            .axis_iter(Axis(0))
+            .enumerate()
+            .map(|(i, v)| {
+                [
+                    f32::trunc(v[0] + ww[i] * 0.5 - mm[i] * 0.5),
+                    f32::trunc(v[1] + hh[i] * 0.5 - mm[i] * 0.5),
+                    f32::trunc((v[0] + ww[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0),
+                    f32::trunc((v[1] + hh[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0),
+                    v[4],
+                ]
+            })
+            .collect::<Vec<_>>();
         let boxes_1x1 = Array::from_shape_vec(
             (boxes.dim().0, boxes.dim().1),
             boxes_1x1_t.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
@@ -60,6 +75,9 @@ mod tests {
     #[test]
     fn test_convert_to_1x1() {
         let boxes: Array2<f32> = read_npy("test_resources/dets.npy").unwrap();
-        TrtRnet::convert_to_1x1(&boxes);
+        let np_boxes_1x1: Array2<f32> = read_npy("test_resources/boxes_1x1.npy").unwrap();
+        let boxes_1x1 = TrtRnet::convert_to_1x1(&boxes);
+
+        assert_eq!(np_boxes_1x1, boxes_1x1);
     }
 }
