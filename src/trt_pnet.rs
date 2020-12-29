@@ -20,11 +20,6 @@ pub struct TrtPnet {
     pnet_engine: Engine,
 }
 
-enum SuppressionType {
-    Union,
-    Min,
-}
-
 impl TrtPnet {
     pub fn new(engine_file: &str, logger: &Logger) -> Result<TrtPnet, String> {
         let runtime = Runtime::new(&logger);
@@ -40,25 +35,6 @@ impl TrtPnet {
             boxes_dims: (4, 350, 187),
             pnet_engine: engine,
         })
-    }
-
-    fn get_scales(width: u32, height: u32, minsize: u32, factor: f64) -> Vec<f64> {
-        let mut m = 12.0 / minsize as f64;
-        let mut minl = cmp::min(width, height) as f64 * m;
-
-        // create scale pyramid
-        let mut scales = Vec::new();
-        while minl >= 12.0 {
-            scales.push(m);
-            m *= factor;
-            minl *= factor;
-        }
-
-        // if len(scales) > self.max_n_scales:  # probably won't happen...
-        //     raise ValueError('Too many scales, try increasing minsize '
-        //                      'or decreasing factor.')
-
-        scales
     }
 
     fn execute(&self, mut pnet_input: &mut Array3<f32>) -> (Array3<f32>, Array3<f32>) {
@@ -128,89 +104,6 @@ impl TrtPnet {
         stack!(Axis(1), boxes, score)
     }
 
-    fn nms(boxes: &Array2<f32>, threshold: f32, s_type: SuppressionType) -> Vec<usize> {
-        let areas = boxes
-            .axis_iter(Axis(0))
-            .map(|x| (x[2] - x[0] + 1.0) * (x[3] - x[1] + 1.0))
-            .collect::<Array<_, _>>();
-
-        let mut sorted_idx = boxes
-            .slice(s![.., 4])
-            .indexed_iter()
-            .map(|(index, &item)| index)
-            .collect::<Vec<usize>>();
-        sorted_idx.sort_unstable_by(|a, b| boxes[[*a, 4]].partial_cmp(&boxes[[*b, 4]]).unwrap());
-
-        let xx1 = boxes.slice(s![.., 0]);
-        let yy1 = boxes.slice(s![.., 1]);
-        let xx2 = boxes.slice(s![.., 2]);
-        let yy2 = boxes.slice(s![.., 3]);
-
-        let mut pick: Vec<usize> = vec![];
-        loop {
-            if sorted_idx.len() <= 0 {
-                break;
-            }
-
-            let (begin, last) = sorted_idx.split_at(sorted_idx.len() - 1);
-
-            let tx1 = maximum(&xx1[last[0]], map_index(begin, &xx1));
-            let ty1 = maximum(&yy1[last[0]], map_index(begin, &yy1));
-            let tx2 = minimum(&xx2[last[0]], map_index(begin, &xx2));
-            let ty2 = minimum(&yy2[last[0]], map_index(begin, &yy2));
-
-            let tw = maximum(&0.0, tx2 - tx1 + 1.0);
-            let th = maximum(&0.0, ty2 - ty1 + 1.0);
-            let inter = tw * th;
-
-            let iou = match s_type {
-                SuppressionType::Min => {
-                    inter / minimum(&areas[last[0]], map_index(begin, &areas.view()))
-                }
-                SuppressionType::Union => {
-                    inter.clone() / (areas[last[0]] + map_index(begin, &areas.view()) - inter)
-                }
-            };
-            pick.push(last[0]);
-            sorted_idx = sorted_idx
-                .iter()
-                .enumerate()
-                .filter_map(|(index, &item)| {
-                    if (index < iou.len()) && (iou[index] <= threshold) {
-                        Some(item)
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>();
-        }
-
-        pick
-    }
-
-    fn clip_dets(in_dets: &Array2<f32>, img_w: u32, img_h: u32) -> Array2<f32> {
-        let out_dets_t = in_dets
-            .axis_iter(Axis(0))
-            .map(|v| {
-                [
-                    clamp(f32::trunc(v[0]), 0.0, (img_w - 1) as f32),
-                    clamp(f32::trunc(v[1]), 0.0, (img_h - 1) as f32),
-                    clamp(f32::trunc(v[2]), 0.0, (img_w - 1) as f32),
-                    clamp(f32::trunc(v[3]), 0.0, (img_h - 1) as f32),
-                    v[4],
-                ]
-            })
-            .collect::<Vec<_>>();
-
-        let out_dets = Array::from_shape_vec(
-            (in_dets.dim().0, in_dets.dim().1),
-            out_dets_t.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
-        )
-        .unwrap();
-
-        out_dets
-    }
-
     fn extract_outputs(
         width: u32,
         height: u32,
@@ -233,7 +126,7 @@ impl TrtPnet {
                 TrtPnet::generate_pnet_bboxes(&pp.to_owned(), &cc.to_owned(), scale, threshold);
 
             if boxes.shape()[0] > 0 {
-                let pick = TrtPnet::nms(&boxes, 0.5, SuppressionType::Union);
+                let pick = nms(&boxes, 0.5, SuppressionType::Union);
                 //println!("{:?}", boxes);
                 if pick.len() > 0 {
                     let boxes_slice_t = pick
@@ -262,7 +155,7 @@ impl TrtPnet {
         if total_boxes.shape()[0] == 0 {
             total_boxes
         } else {
-            let total_pick = TrtPnet::nms(&total_boxes, 0.7, SuppressionType::Union);
+            let total_pick = nms(&total_boxes, 0.7, SuppressionType::Union);
 
             //dets = clip_dets(total_boxes[pick, :], img_w, img_h)
             let indexed_boxes_t = total_pick
@@ -279,7 +172,7 @@ impl TrtPnet {
             )
             .unwrap();
 
-            let dets = TrtPnet::clip_dets(&indexed_boxes, width, height);
+            let dets = clip_dets(&indexed_boxes, width, height);
             dets
         }
     }
@@ -298,7 +191,7 @@ impl TrtPnet {
         // raise ValueError("TrtPNet is currently designed with "
         //                  "'factor' <= 0.709")
 
-        let scales = TrtPnet::get_scales(image.width(), image.height(), minsize, factor);
+        let scales = get_scales(image.width(), image.height(), minsize, factor);
 
         let mut im_data = DynamicImage::new_rgb8(384, 710);
 
@@ -445,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_pnet_extract_outputs() {
-        let scales = TrtPnet::get_scales(1076, 720, 40, 0.709);
+        let scales = get_scales(1076, 720, 40, 0.709);
         let np_boxes: Array3<f32> = read_npy("test_resources/boxes.npy").unwrap();
         let np_prob1: Array3<f32> = read_npy("test_resources/prob1.npy").unwrap();
 
@@ -454,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_generate_pnet_bboxes() {
-        let scales = TrtPnet::get_scales(1076, 720, 40, 0.709);
+        let scales = get_scales(1076, 720, 40, 0.709);
         for (i, scale) in scales.iter().enumerate() {
             let cc: Array3<f32> = read_npy(format!("test_resources/cc{}.npy", i)).unwrap();
             let pp: Array2<f32> = read_npy(format!("test_resources/pp{}.npy", i)).unwrap();
@@ -464,35 +357,5 @@ mod tests {
 
             assert_eq!(boxes, pnetboxes);
         }
-    }
-
-    #[test]
-    fn test_nms() {
-        let pick_res: Vec<Vec<usize>> = vec![
-            vec![36, 12, 43, 31, 22, 6, 44, 3, 19, 47, 33, 2, 0, 1, 8],
-            vec![20, 25, 5, 1, 13, 6, 7],
-            vec![10, 2, 15, 0, 17, 18, 3],
-            vec![3, 9, 0, 10, 1, 2],
-        ];
-
-        let scales = TrtPnet::get_scales(1076, 720, 40, 0.709);
-        for (i, scale) in scales.iter().enumerate() {
-            let pnetboxes: Array2<f32> =
-                read_npy(format!("test_resources/pnetboxes{}.npy", i)).unwrap();
-            let pick = TrtPnet::nms(&pnetboxes, 0.5, SuppressionType::Union);
-            if pick.len() > 0 {
-                assert_eq!(pick, pick_res[i]);
-            }
-        }
-    }
-
-    #[test]
-    fn test_clip_dets() {
-        let indexedboxes: Array2<f32> = read_npy("test_resources/indexedboxes.npy").unwrap();
-        let dts: Array2<f32> = read_npy("test_resources/dets.npy").unwrap();
-
-        let dets = TrtPnet::clip_dets(&indexedboxes, 1076, 720);
-
-        assert_eq!(dts, dets);
     }
 }

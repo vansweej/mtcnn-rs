@@ -176,9 +176,14 @@ impl TrtRnet {
         )
         .unwrap();
 
-        let (prob1, boxes) = self.execute(&mut pre_processed);
+        let (prob1, boxs) = self.execute(&mut pre_processed);
         let pp = prob1.slice(s![.., 1, 0, 0]);
-        let cc = boxes.slice(s![.., .., 0, 0]);
+        let cc = boxs.slice(s![.., .., 0, 0]);
+
+        let rnet_boxes =
+            TrtRnet::generate_rnet_bboxes(&pp.to_owned(), &cc.to_owned(), &boxes, threshold);
+        // if boxes.shape[0] == 0:
+        //     return boxes
     }
 }
 
