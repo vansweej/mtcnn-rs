@@ -66,7 +66,10 @@ impl TrtPnet {
 
         let mut prob1 = ndarray::Array3::<f32>::zeros((2, 350, 187));
         let mut boxes = ndarray::Array3::<f32>::zeros((4, 350, 187));
-        let pnet_output = vec![ExecuteInput::Float(&mut boxes), ExecuteInput::Float(&mut prob1)];
+        let pnet_output = vec![
+            ExecuteInput::Float(&mut boxes),
+            ExecuteInput::Float(&mut prob1),
+        ];
 
         let context = self.pnet_engine.create_execution_context();
         context.execute(im_input, pnet_output, None).unwrap();
@@ -247,7 +250,7 @@ impl TrtPnet {
                         .collect::<Vec<_>>();
                     let boxes_slice = Array::from_shape_vec(
                         (pick.len(), 5),
-                        boxes_slice_t.iter().flat_map(|v| v).map(|v| *v).collect(),
+                        boxes_slice_t.iter().flatten().map(|v| *v).collect(),
                     )
                     .unwrap();
                     if boxes_slice.len() > 0 {

@@ -72,6 +72,48 @@ impl TrtRnet {
         boxes_1x1
     }
 
+    fn generate_rnet_bboxes(
+        conf: &Array1<f32>,
+        reg: &Array2<f32>,
+        pboxes: &Array2<f32>,
+        t: f32,
+    ) -> Array2<f32> {
+        let boxes = pboxes
+            .axis_iter(Axis(0))
+            .enumerate()
+            .map(|(i, v)| [v[0], v[1], v[2], v[3], conf[i]])
+            .filter(|v| v[4] > t)
+            .collect::<Vec<_>>();
+
+        let reg_f = reg
+            .axis_iter(Axis(0))
+            .enumerate()
+            .filter(|(i, v)| conf[*i] > t)
+            .map(|(i, v)| v)
+            .collect::<Vec<_>>();
+
+        let mut s_boxes_t: Vec<_> = vec![];
+        for (i, ibox) in boxes.iter().enumerate() {
+            let reg = reg_f[i];
+            let s_box = [
+                ibox[0] + ((ibox[2] - ibox[0] + 1.0) * reg[[0]]),
+                ibox[1] + ((ibox[3] - ibox[1] + 1.0) * reg[[1]]),
+                ibox[2] + ((ibox[2] - ibox[0] + 1.0) * reg[[2]]),
+                ibox[3] + ((ibox[3] - ibox[1] + 1.0) * reg[[3]]),
+                ibox[4],
+            ];
+            s_boxes_t.push(s_box);
+        }
+
+        let s_boxes = Array::from_shape_vec(
+            (boxes.len(), 5),
+            s_boxes_t.iter().flatten().map(|v| *v).collect(),
+        )
+        .unwrap();
+
+        s_boxes
+    }
+
     fn execute(&self, mut rnet_input: &mut Array4<f32>) -> (Array4<f32>, Array4<f32>) {
         let batch_size = rnet_input.dim().0;
         let im_input = ExecuteInput::Float(&mut rnet_input);
@@ -137,8 +179,6 @@ impl TrtRnet {
         let (prob1, boxes) = self.execute(&mut pre_processed);
         let pp = prob1.slice(s![.., 1, 0, 0]);
         let cc = boxes.slice(s![.., .., 0, 0]);
-
-        println!("{:?}", cc);
     }
 }
 
@@ -165,5 +205,17 @@ mod tests {
         let np_boxes_1x1: Array2<f32> = read_npy("test_resources/boxes_1x1.npy").unwrap();
 
         rnet.detect(&rnet_img, &np_boxes_1x1, 256, 0.7);
+    }
+
+    #[test]
+    fn test_generate_rnet_bboxes() {
+        let np_pp: Array1<f32> = read_npy("test_resources/pp_rnet.npy").unwrap();
+        let np_cc: Array2<f32> = read_npy("test_resources/cc_rnet.npy").unwrap();
+        let np_boxes_1x1: Array2<f32> = read_npy("test_resources/boxes_1x1.npy").unwrap();
+        let np_bboxes: Array2<f32> = read_npy("test_resources/boxes_rnet.npy").unwrap();
+
+        let bboxes = TrtRnet::generate_rnet_bboxes(&np_pp, &np_cc, &np_boxes_1x1, 0.7);
+
+        assert_eq!(np_bboxes, bboxes);
     }
 }
