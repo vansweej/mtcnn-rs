@@ -13,6 +13,9 @@ use tensorrt_rs::engine::Engine;
 use tensorrt_rs::runtime::*;
 
 pub struct TrtRnet {
+    data_dims: (u32, u32, u32),
+    prob1_dims: (u32, u32, u32),
+    boxes_dims: (u32, u32, u32),
     rnet_engine: Engine,
 }
 
@@ -26,6 +29,9 @@ impl TrtRnet {
         let engine = runtime.deserialize_cuda_engine(pnet_buffer);
 
         Ok(TrtRnet {
+            data_dims: (3, 24, 24),
+            prob1_dims: (2, 1, 1),
+            boxes_dims: (4, 1, 1),
             rnet_engine: engine,
         })
     }
@@ -66,6 +72,25 @@ impl TrtRnet {
         boxes_1x1
     }
 
+    fn execute(&self, mut rnet_input: &mut Array4<f32>) -> (Array4<f32>, Array4<f32>) {
+        let batch_size = rnet_input.dim().0;
+        let im_input = ExecuteInput::Float(&mut rnet_input);
+
+        let mut prob1 = ndarray::Array4::<f32>::zeros((batch_size, 2, 1, 1));
+        let mut boxes = ndarray::Array4::<f32>::zeros((batch_size, 4, 1, 1));
+        let pnet_output = vec![
+            ExecuteInput::Float(&mut boxes),
+            ExecuteInput::Float(&mut prob1),
+        ];
+
+        let context = self.rnet_engine.create_execution_context();
+        context
+            .execute(im_input, pnet_output, Some(batch_size as i32))
+            .unwrap();
+
+        (prob1, boxes)
+    }
+
     pub fn detect(
         &self,
         image: &DynamicImage,
@@ -89,7 +114,8 @@ impl TrtRnet {
 
             let cropped_img = crop_imm(image, det[0] as u32, det[1] as u32, w as u32, h as u32);
             let resized_img = resize(&cropped_img, 24, 24, FilterType::Nearest);
-            let rotated_img = rotate270(&resized_img);
+            let flipped_img = flip_horizontal(&resized_img);
+            let rotated_img = rotate270(&flipped_img);
             let img = DynamicImage::ImageRgba8(rotated_img).to_rgb8();
             crops.push(img);
         }
@@ -99,21 +125,20 @@ impl TrtRnet {
             let mut im_array: ndarray_image::NdColor = ndarray_image::NdImage(crop).into();
             im_array.swap_axes(0, 2);
             im_array.swap_axes(1, 2);
-            let pre_processed = im_array.map(|&x| {
-                if x == 0 {
-                    0.0
-                } else {
-                    ((x as f32) - PIXEL_MEAN) * PIXEL_SCALE
-                }
-            });
+            let pre_processed = im_array.map(|&x| ((x as f32) - PIXEL_MEAN) * PIXEL_SCALE);
             conv_crops.push(pre_processed);
         }
-        let x = Array::from_shape_vec(
+        let mut pre_processed = Array::from_shape_vec(
             (conv_crops.len(), 3, 24, 24),
-            conv_crops.iter().flatten().collect::<Vec<_>>(),
+            conv_crops.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
         )
         .unwrap();
-        println!("{:?}", x.dim());
+
+        let (prob1, boxes) = self.execute(&mut pre_processed);
+        let pp = prob1.slice(s![.., 1, 0, 0]);
+        let cc = boxes.slice(s![.., .., 0, 0]);
+
+        println!("{:?}", cc);
     }
 }
 
