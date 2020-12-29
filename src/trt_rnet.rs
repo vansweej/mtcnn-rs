@@ -139,7 +139,7 @@ impl TrtRnet {
         boxes: &Array2<f32>,
         max_batch: u32,
         threshold: f32,
-    ) {
+    ) -> Array2<f32> {
         const PIXEL_MEAN: f32 = 127.5;
         const PIXEL_SCALE: f32 = 0.0078125;
         // if max_batch > 256:
@@ -184,6 +184,24 @@ impl TrtRnet {
             TrtRnet::generate_rnet_bboxes(&pp.to_owned(), &cc.to_owned(), &boxes, threshold);
         // if boxes.shape[0] == 0:
         //     return boxes
+
+        let total_pick = nms(&rnet_boxes, 0.7, SuppressionType::Union);
+        let indexed_rnet_boxes_t = total_pick
+            .iter()
+            .map(|v| rnet_boxes.index_axis(Axis(0), *v))
+            .collect::<Vec<_>>();
+        let indexed_rnet_boxes = Array::from_shape_vec(
+            (total_pick.len(), 5),
+            indexed_rnet_boxes_t
+                .iter()
+                .flatten()
+                .map(|v| *v)
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let dets = clip_dets(&indexed_rnet_boxes, image.width(), image.height());
+        println!("{:?}", dets);
+        dets
     }
 }
 
