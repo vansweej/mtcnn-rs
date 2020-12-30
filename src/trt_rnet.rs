@@ -200,7 +200,6 @@ impl TrtRnet {
         )
         .unwrap();
         let dets = clip_dets(&indexed_rnet_boxes, image.width(), image.height());
-        println!("{:?}", dets);
         dets
     }
 }

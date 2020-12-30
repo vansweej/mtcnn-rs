@@ -1,11 +1,20 @@
+use image::imageops::*;
+use image::*;
 use ndarray::prelude::*;
-use show_image::{make_window, ImageData, KeyCode};
+use show_image::*;
 use std::cmp;
 use std::time::Duration;
 
 pub fn display_image(image: impl ImageData) {
     // Create a window and display the image.
-    let window = make_window("image").unwrap();
+    let options = WindowOptions {
+        name: "image".to_string(),
+        size: [384, 710],
+        resizable: true,
+        preserve_aspect_ratio: false,
+    };
+
+    let window = make_window_full(options).unwrap();
     window.set_image(image, "image-001").unwrap();
 
     // Print keyboard events until Escape is pressed, then exit.
@@ -176,6 +185,29 @@ pub fn clip_dets(in_dets: &Array2<f32>, img_w: u32, img_h: u32) -> Array2<f32> {
     out_dets
 }
 
+pub fn rescale(image: &DynamicImage, min_size: u32) -> (RgbImage, u32) {
+    let scale = f32::min(720.0 / image.height() as f32, 1280.0 / image.width() as f32);
+    let (width, height) = if scale < 1.0 {
+        (
+            (image.width() as f32 * scale).ceil() as u32,
+            (image.height() as f32 * scale).ceil() as u32,
+        )
+    } else {
+        (image.width(), image.height())
+    };
+    let ms = || {
+        if scale < 1.0 {
+            return cmp::max((min_size as f32 * scale).ceil() as u32, 40);
+        } else {
+            return min_size;
+        }
+    };
+    (
+        image.resize(width, height, FilterType::Nearest).to_rgb8(),
+        ms(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,5 +243,30 @@ mod tests {
         let dets = clip_dets(&indexedboxes, 1076, 720);
 
         assert_eq!(dts, dets);
+    }
+
+    #[test]
+    fn test_rescale() {
+        let img1 = image::open("test_resources/2020-11-21-144033.jpg").unwrap();
+
+        let (scaled_image1, min_size) = rescale(&img1, 40);
+
+        assert_eq!(min_size, 40);
+        assert_eq!(scaled_image1.width(), 640);
+        assert_eq!(scaled_image1.height(), 360);
+
+        let img2 = image::open("test_resources/DSC_0003.JPG").unwrap();
+
+        let (scaled_image2, min_size) = rescale(&img2, 40);
+
+        assert_eq!(min_size, 40);
+        assert_eq!(scaled_image2.width(), 1076);
+        assert_eq!(scaled_image2.height(), 720);
+
+        // display_image(&scaled_image1);
+
+        // display_image(&img2);
+
+        // display_image(&scaled_image2);
     }
 }

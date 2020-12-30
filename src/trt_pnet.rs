@@ -6,7 +6,6 @@ use image::*;
 use ndarray::prelude::*;
 use ndarray::{s, stack};
 use ndarray_image;
-use std::cmp;
 use std::fs::File;
 use std::io::Read;
 use tensorrt_rs::context::ExecuteInput;
@@ -37,7 +36,7 @@ impl TrtPnet {
         })
     }
 
-    fn execute(&self, mut pnet_input: &mut Array3<f32>) -> (Array3<f32>, Array3<f32>) {
+    fn execute(&self, mut pnet_input: &mut Array4<f32>) -> (Array3<f32>, Array3<f32>) {
         let im_input = ExecuteInput::Float(&mut pnet_input);
 
         let mut prob1 = ndarray::Array3::<f32>::zeros((2, 350, 187));
@@ -122,22 +121,21 @@ impl TrtPnet {
             let w = ((width as f64 * scale) as i32 - 12) / 2 + 1;
             let pp = prob1.slice(s![1, h_offset..(h_offset + h), ..w]);
             let cc = boxes.slice(s![.., h_offset..(h_offset + h), ..w]);
-            let boxes =
+            let pnet_boxes =
                 TrtPnet::generate_pnet_bboxes(&pp.to_owned(), &cc.to_owned(), scale, threshold);
 
-            if boxes.shape()[0] > 0 {
-                let pick = nms(&boxes, 0.5, SuppressionType::Union);
-                //println!("{:?}", boxes);
+            if pnet_boxes.shape()[0] > 0 {
+                let pick = nms(&pnet_boxes, 0.5, SuppressionType::Union);
                 if pick.len() > 0 {
                     let boxes_slice_t = pick
                         .iter()
                         .map(|v| {
                             [
-                                boxes[[*v, 0]],
-                                boxes[[*v, 1]],
-                                boxes[[*v, 2]],
-                                boxes[[*v, 3]],
-                                boxes[[*v, 4]],
+                                pnet_boxes[[*v, 0]],
+                                pnet_boxes[[*v, 1]],
+                                pnet_boxes[[*v, 2]],
+                                pnet_boxes[[*v, 3]],
+                                pnet_boxes[[*v, 4]],
                             ]
                         })
                         .collect::<Vec<_>>();
@@ -152,6 +150,7 @@ impl TrtPnet {
                 }
             }
         }
+
         if total_boxes.shape()[0] == 0 {
             total_boxes
         } else {
@@ -177,7 +176,13 @@ impl TrtPnet {
         }
     }
 
-    pub fn detect(&self, image: &DynamicImage, minsize: u32, factor: f64, threshold: f64) {
+    pub fn detect(
+        &self,
+        image: &DynamicImage,
+        minsize: u32,
+        factor: f64,
+        threshold: f32,
+    ) -> Array2<f32> {
         const INPUT_H_OFFSETS: [u32; 9] = [0, 216, 370, 478, 556, 610, 648, 676, 696];
         const OUTPUT_H_OFFSETS: [i32; 9] = [0, 108, 185, 239, 278, 305, 324, 338, 348];
         const MAX_N_SCALES: u8 = 9;
@@ -206,14 +211,13 @@ impl TrtPnet {
                 //display_image(&im_data);
             }
         }
-
-        let im_data_rgb = im_data.to_rgb8();
+        let im_data_rgb = im_data.to_bgr8();
         let mut im_array: ndarray_image::NdColor = ndarray_image::NdImage(&im_data_rgb).into();
 
         im_array.swap_axes(0, 2);
         im_array.swap_axes(1, 2);
 
-        let mut pre_processed = im_array.map(|&x| {
+        let mut pre_processed_t = im_array.map(|&x| {
             if x == 0 {
                 0.0
             } else {
@@ -221,7 +225,24 @@ impl TrtPnet {
             }
         });
 
+        let mut proc: Vec<_> = vec![];
+        proc.push(pre_processed_t);
+        let mut pre_processed = Array::from_shape_vec(
+            (1, 3, 710, 384),
+            proc.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
+        )
+        .unwrap();
+
         let (prob1, boxes) = self.execute(&mut pre_processed);
+
+        TrtPnet::extract_outputs(
+            image.width(),
+            image.height(),
+            &scales,
+            &prob1,
+            &boxes,
+            threshold,
+        )
     }
 }
 
@@ -229,29 +250,6 @@ impl Drop for TrtPnet {
     fn drop(&mut self) {
         drop(&self.pnet_engine);
     }
-}
-
-fn rescale(image: &DynamicImage, min_size: u32) -> (RgbImage, u32) {
-    let scale = f32::min(720.0 / image.height() as f32, 1280.0 / image.width() as f32);
-    let (width, height) = if scale < 1.0 {
-        (
-            (image.width() as f32 * scale).ceil() as u32,
-            (image.height() as f32 * scale).ceil() as u32,
-        )
-    } else {
-        (image.width(), image.height())
-    };
-    let ms = || {
-        if scale < 1.0 {
-            return cmp::max((min_size as f32 * scale).ceil() as u32, 40);
-        } else {
-            return min_size;
-        }
-    };
-    (
-        image.resize(width, height, FilterType::Nearest).to_rgb8(),
-        ms(),
-    )
 }
 
 #[cfg(test)]
@@ -272,31 +270,6 @@ mod tests {
     }
 
     #[test]
-    fn test_rescale() {
-        let img1 = image::open("test_resources/2020-11-21-144033.jpg").unwrap();
-
-        let (scaled_image1, min_size) = rescale(&img1, 40);
-
-        assert_eq!(min_size, 40);
-        assert_eq!(scaled_image1.width(), 640);
-        assert_eq!(scaled_image1.height(), 360);
-
-        let img2 = image::open("test_resources/DSC_0003.JPG").unwrap();
-
-        let (scaled_image2, min_size) = rescale(&img2, 40);
-
-        assert_eq!(min_size, 40);
-        assert_eq!(scaled_image2.width(), 1076);
-        assert_eq!(scaled_image2.height(), 720);
-
-        // display_image(&scaled_image1);
-
-        // display_image(&img2);
-
-        // display_image(&scaled_image2);
-    }
-
-    #[test]
     fn test_pnet_detect() {
         let logger = Logger::new();
         let pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
@@ -309,7 +282,7 @@ mod tests {
         assert_eq!(scaled_image2.width(), 1076);
         assert_eq!(scaled_image2.height(), 720);
 
-        pnet.detect(
+        let dets = pnet.detect(
             &DynamicImage::ImageRgb8(scaled_image2),
             min_size,
             0.709,
@@ -327,7 +300,15 @@ mod tests {
         let np_boxes: Array3<f32> = read_npy("test_resources/boxes.npy").unwrap();
         let np_prob1: Array3<f32> = read_npy("test_resources/prob1.npy").unwrap();
 
-        let (prob1, boxes) = pnet.execute(&mut np_im_data);
+        let mut proc: Vec<_> = vec![];
+        proc.push(np_im_data);
+        let mut pre_processed = Array::from_shape_vec(
+            (1, 3, 710, 384),
+            proc.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+        let (prob1, boxes) = pnet.execute(&mut pre_processed);
 
         assert_eq!(prob1.dim(), np_prob1.dim());
         assert_eq!(boxes.dim(), np_boxes.dim());
