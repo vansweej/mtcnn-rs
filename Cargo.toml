@@ -1,5 +1,5 @@
 [package]
-name = "mtcnn_rs"
+name = "mtcnn-rs"
 version = "0.1.0"
 authors = ["Jan Van Sweevelt <vansweej@gmail.com>"]
 edition = "2018"
