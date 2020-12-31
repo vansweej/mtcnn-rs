@@ -1,4 +1,4 @@
-mod trt_mtcnn;
+pub mod trt_mtcnn;
 
 mod trt_pnet;
 
