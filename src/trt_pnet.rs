@@ -70,7 +70,7 @@ impl TrtPnet {
         let indexes = conf_t
             .indexed_iter()
             .filter_map(|(index, &item)| if item >= t { Some(index) } else { None })
-            .collect::<Vec<_>>();
+            .collect::<Array<_, _>>();
 
         let score = Array::from_shape_vec(
             (indexes.len(), 1),
@@ -80,8 +80,8 @@ impl TrtPnet {
 
         let reg = indexes
             .iter()
-            .map(|(x, y)| [dx1[[*x, *y]], dy1[[*x, *y]], dx2[[*x, *y]], dy2[[*x, *y]]])
-            .collect::<Vec<_>>()
+            .map(|(x, y)| array![dx1[[*x, *y]], dy1[[*x, *y]], dx2[[*x, *y]], dy2[[*x, *y]]])
+            .collect::<Array<_, _>>()
             .iter()
             .flatten()
             .map(|v| v * 12.0)
@@ -89,15 +89,17 @@ impl TrtPnet {
             .into_shape((indexes.len(), 4))
             .unwrap();
 
-        let topleft_t: Vec<_> = indexes
+        let topleft = indexes
             .iter()
-            .map(|(x, y)| [*x as f32, *y as f32])
-            .collect();
-        let topleft = Array::from_shape_vec(
-            (indexes.len(), 2),
-            topleft_t.iter().flatten().map(|v| v * 2.0).collect(),
-        )
-        .unwrap();
+            .map(|(x, y)| array![*x as f32, *y as f32])
+            .collect::<Array<_, _>>()
+            .iter()
+            .flatten()
+            .map(|v| v * 2.0)
+            .collect::<Array<_, _>>()
+            .into_shape((indexes.len(), 2))
+            .unwrap();
+
         let bottomright = topleft.clone() + array![11.0, 11.0];
         let boxes = (stack![Axis(1), topleft, bottomright] + reg) / *scale as f32;
         stack!(Axis(1), boxes, score)
@@ -127,10 +129,10 @@ impl TrtPnet {
             if pnet_boxes.shape()[0] > 0 {
                 let pick = nms(&pnet_boxes, 0.5, SuppressionType::Union);
                 if pick.len() > 0 {
-                    let boxes_slice_t = pick
+                    let boxes_slice = pick
                         .iter()
                         .map(|v| {
-                            [
+                            array![
                                 pnet_boxes[[*v, 0]],
                                 pnet_boxes[[*v, 1]],
                                 pnet_boxes[[*v, 2]],
@@ -138,12 +140,13 @@ impl TrtPnet {
                                 pnet_boxes[[*v, 4]],
                             ]
                         })
-                        .collect::<Vec<_>>();
-                    let boxes_slice = Array::from_shape_vec(
-                        (pick.len(), 5),
-                        boxes_slice_t.iter().flatten().map(|v| *v).collect(),
-                    )
-                    .unwrap();
+                        .collect::<Array<_, _>>()
+                        .iter()
+                        .flatten()
+                        .map(|v| *v)
+                        .collect::<Array<_, _>>()
+                        .into_shape((pick.len(), 5))
+                        .unwrap();
                     if boxes_slice.len() > 0 {
                         total_boxes = stack![Axis(0), total_boxes, boxes_slice];
                     }
@@ -156,20 +159,16 @@ impl TrtPnet {
         } else {
             let total_pick = nms(&total_boxes, 0.7, SuppressionType::Union);
 
-            //dets = clip_dets(total_boxes[pick, :], img_w, img_h)
-            let indexed_boxes_t = total_pick
+            let indexed_boxes = total_pick
                 .iter()
                 .map(|v| total_boxes.index_axis(Axis(0), *v))
-                .collect::<Vec<_>>();
-            let indexed_boxes = Array::from_shape_vec(
-                (total_pick.len(), 5),
-                indexed_boxes_t
-                    .iter()
-                    .flatten()
-                    .map(|v| *v)
-                    .collect::<Vec<_>>(),
-            )
-            .unwrap();
+                .collect::<Array<_, _>>()
+                .iter()
+                .flatten()
+                .map(|v| *v)
+                .collect::<Array<_, _>>()
+                .into_shape((total_pick.len(), 5))
+                .unwrap();
 
             let dets = clip_dets(&indexed_boxes, width, height);
             dets
@@ -255,7 +254,7 @@ impl Drop for TrtPnet {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helper::*;
+    //use crate::helper::*;
     use ndarray::{Array, Array3};
     use ndarray_npy::read_npy;
 

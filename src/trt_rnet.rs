@@ -4,7 +4,7 @@ use crate::helper::*;
 use image::imageops::*;
 use image::*;
 use ndarray::prelude::*;
-use ndarray::{s, stack};
+use ndarray::s;
 use ndarray_image;
 use std::fs::File;
 use std::io::Read;

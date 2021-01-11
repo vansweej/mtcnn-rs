@@ -7,17 +7,17 @@ use image::*;
 use ndarray::prelude::*;
 use tensorrt_rs::runtime::*;
 
-pub struct mtcnn {
+pub struct Mtcnn {
     pnet: TrtPnet,
     rnet: TrtRnet,
 }
 
-impl mtcnn {
-    pub fn new(logger: &Logger) -> Result<mtcnn, String> {
+impl Mtcnn {
+    pub fn new(logger: &Logger) -> Result<Mtcnn, String> {
         let pnet_t = TrtPnet::new("./test_resources/det1.engine", &logger)?;
         let rnet_t = TrtRnet::new("./test_resources/det2.engine", &logger)?;
 
-        Ok(mtcnn {
+        Ok(Mtcnn {
             pnet: pnet_t,
             rnet: rnet_t,
         })
@@ -33,7 +33,7 @@ impl mtcnn {
         let result = rnet_dets
             .axis_iter(Axis(0))
             .map(|v| {
-                if (scale < 1.0) {
+                if scale < 1.0 {
                     [v[0] / scale, v[1] / scale, v[2] / scale, v[3] / scale, v[4]]
                 } else {
                     [v[0], v[1], v[2], v[3], v[4]]
@@ -54,13 +54,13 @@ mod tests {
     fn test_mtcnn_new() {
         let logger = Logger::new();
 
-        let mt = mtcnn::new(&logger);
+        let mt = Mtcnn::new(&logger);
     }
 
     #[test]
     fn test_detect() {
         let logger = Logger::new();
-        let mt = mtcnn::new(&logger).unwrap();
+        let mt = Mtcnn::new(&logger).unwrap();
 
         let img = image::open("test_resources/DSC_0003.JPG").unwrap();
 

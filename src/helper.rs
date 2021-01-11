@@ -32,10 +32,7 @@ pub fn display_image(image: impl ImageData) {
 }
 
 // Some numpy functions
-pub fn maximum<A, D>(
-    num: &A,
-    num_array: Array<A, D>,
-) -> ArrayBase<ndarray::OwnedRepr<A>, Dim<[usize; 1]>>
+pub fn maximum<A, D>(num: &A, num_array: Array<A, D>) -> Array1<A>
 where
     A: std::cmp::PartialOrd + std::marker::Copy,
     D: Dimension,
@@ -46,10 +43,7 @@ where
         .collect::<Array<_, _>>()
 }
 
-pub fn minimum<A, D>(
-    num: &A,
-    num_array: Array<A, D>,
-) -> ArrayBase<ndarray::OwnedRepr<A>, Dim<[usize; 1]>>
+pub fn minimum<A, D>(num: &A, num_array: Array<A, D>) -> Array1<A>
 where
     A: std::cmp::PartialOrd + std::marker::Copy,
     D: Dimension,
@@ -58,13 +52,6 @@ where
         .iter()
         .map(|v| if *v > *num { *num } else { *v })
         .collect::<Array<_, _>>()
-}
-
-pub fn map_index(
-    index: &[usize],
-    arr: &ArrayBase<ndarray::ViewRepr<&f32>, ndarray::Dim<[usize; 1]>>,
-) -> ArrayBase<ndarray::OwnedRepr<f32>, ndarray::Dim<[usize; 1]>> {
-    index.iter().map(|v| arr[*v]).collect::<Array<_, _>>()
 }
 
 pub fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
@@ -127,22 +114,19 @@ pub fn nms(boxes: &Array2<f32>, threshold: f32, s_type: SuppressionType) -> Vec<
         }
 
         let (begin, last) = sorted_idx.split_at(sorted_idx.len() - 1);
-
-        let tx1 = maximum(&xx1[last[0]], map_index(begin, &xx1));
-        let ty1 = maximum(&yy1[last[0]], map_index(begin, &yy1));
-        let tx2 = minimum(&xx2[last[0]], map_index(begin, &xx2));
-        let ty2 = minimum(&yy2[last[0]], map_index(begin, &yy2));
+        let tx1 = maximum(&xx1[last[0]], xx1.select(Axis(0), begin));
+        let ty1 = maximum(&yy1[last[0]], yy1.select(Axis(0), begin));
+        let tx2 = minimum(&xx2[last[0]], xx2.select(Axis(0), begin));
+        let ty2 = minimum(&yy2[last[0]], yy2.select(Axis(0), begin));
 
         let tw = maximum(&0.0, tx2 - tx1 + 1.0);
         let th = maximum(&0.0, ty2 - ty1 + 1.0);
         let inter = tw * th;
 
         let iou = match s_type {
-            SuppressionType::Min => {
-                inter / minimum(&areas[last[0]], map_index(begin, &areas.view()))
-            }
+            SuppressionType::Min => inter / minimum(&areas[last[0]], areas.select(Axis(0), begin)),
             SuppressionType::Union => {
-                inter.clone() / (areas[last[0]] + map_index(begin, &areas.view()) - inter)
+                inter.clone() / (areas[last[0]] + areas.select(Axis(0), begin) - inter)
             }
         };
         pick.push(last[0]);
@@ -211,8 +195,6 @@ pub fn rescale(image: &DynamicImage, min_size: u32) -> (RgbImage, u32) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helper::*;
-    use ndarray::{Array, Array3};
     use ndarray_npy::read_npy;
 
     #[test]
@@ -262,11 +244,5 @@ mod tests {
         assert_eq!(min_size, 40);
         assert_eq!(scaled_image2.width(), 1076);
         assert_eq!(scaled_image2.height(), 720);
-
-        // display_image(&scaled_image1);
-
-        // display_image(&img2);
-
-        // display_image(&scaled_image2);
     }
 }
