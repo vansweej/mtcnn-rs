@@ -1102,7 +1102,7 @@ dependencies = [
 [[package]]
 name = "tensorrt-rs"
 version = "0.4.0"
-source = "git+https://github.com/vansweej/tensorrt-rs?branch=develop#a0037b35949db9882bf7e9c9e027856216bb8236"
+source = "git+https://github.com/vansweej/tensorrt-rs?branch=windows_build#e9f2aa2175ffe6c2531cc7d273365b5e797693b5"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -1120,7 +1120,7 @@ dependencies = [
 [[package]]
 name = "tensorrt-sys"
 version = "0.4.0"
-source = "git+https://github.com/mstallmo/tensorrt-rs?branch=develop#1b9b0d80e2bcde72365ca2420547116daecd5f17"
+source = "git+https://github.com/vansweej/tensorrt-rs?branch=windows_build#e9f2aa2175ffe6c2531cc7d273365b5e797693b5"
 dependencies = [
  "bindgen",
  "cmake",
@@ -1130,7 +1130,7 @@ dependencies = [
 [[package]]
 name = "tensorrt_rs_derive"
 version = "0.1.0"
-source = "git+https://github.com/mstallmo/tensorrt-rs?branch=develop#1b9b0d80e2bcde72365ca2420547116daecd5f17"
+source = "git+https://github.com/vansweej/tensorrt-rs?branch=windows_build#e9f2aa2175ffe6c2531cc7d273365b5e797693b5"
 dependencies = [
  "quote",
  "syn",

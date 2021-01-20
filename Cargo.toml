@@ -15,7 +15,7 @@ image = "0.23.12"
 ndarray = "0.13.1"
 ndarray-image = "0.2"
 ndarray-npy = "0.6.0"
-tensorrt-rs = { git = "https://github.com/vansweej/tensorrt-rs", branch = "develop" }
+tensorrt-rs = { git = "https://github.com/vansweej/tensorrt-rs", branch = "windows_build" }
 
 [dependencies.show-image]
 version = "0.6.5"
