@@ -13,9 +13,9 @@ pub struct Mtcnn {
 }
 
 impl Mtcnn {
-    pub fn new(logger: &Logger) -> Result<Mtcnn, String> {
-        let pnet_t = TrtPnet::new("./test_resources/det1.engine", &logger)?;
-        let rnet_t = TrtRnet::new("./test_resources/det2.engine", &logger)?;
+    pub fn new(engine_path: &str, logger: &Logger) -> Result<Mtcnn, String> {
+        let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &logger)?;
+        let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &logger)?;
 
         Ok(Mtcnn {
             pnet: pnet_t,
@@ -54,13 +54,13 @@ mod tests {
     fn test_mtcnn_new() {
         let logger = Logger::new();
 
-        let mt = Mtcnn::new(&logger);
+        let mt = Mtcnn::new("./test_resources", &logger);
     }
 
     #[test]
     fn test_detect() {
         let logger = Logger::new();
-        let mt = Mtcnn::new(&logger).unwrap();
+        let mt = Mtcnn::new("./test_resources", &logger).unwrap();
 
         let img = image::open("test_resources/DSC_0003.JPG").unwrap();
 
