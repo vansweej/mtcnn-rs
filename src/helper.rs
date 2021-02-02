@@ -1,35 +1,7 @@
 use image::imageops::*;
 use image::*;
 use ndarray::prelude::*;
-use show_image::*;
 use std::cmp;
-use std::time::Duration;
-
-pub fn display_image(image: impl ImageData) {
-    // Create a window and display the image.
-    let options = WindowOptions {
-        name: "image".to_string(),
-        size: [384, 710],
-        resizable: true,
-        preserve_aspect_ratio: false,
-    };
-
-    let window = make_window_full(options).unwrap();
-    window.set_image(image, "image-001").unwrap();
-
-    // Print keyboard events until Escape is pressed, then exit.
-    // If the user closes the window, wait_key() will return an error and the loop also exits.
-    while let Ok(event) = window.wait_key(Duration::from_millis(100)) {
-        if let Some(event) = event {
-            if event.key == KeyCode::Escape {
-                break;
-            }
-        }
-    }
-
-    // Make sure all background tasks are stopped cleanly.
-    //show_image::stop().unwrap();
-}
 
 // Some numpy functions
 pub fn maximum<A, D>(num: &A, num_array: Array<A, D>) -> Array1<A>
