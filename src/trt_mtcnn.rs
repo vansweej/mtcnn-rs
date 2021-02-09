@@ -14,8 +14,10 @@ pub struct Mtcnn {
 
 impl Mtcnn {
     pub fn new(engine_path: &str, logger: &Logger) -> Result<Mtcnn, String> {
-        let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &logger)?;
-        let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &logger)?;
+        let log = Logger::new();
+        
+        let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &log)?;
+        let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &log)?;
 
         Ok(Mtcnn {
             pnet: pnet_t,
