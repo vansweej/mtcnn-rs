@@ -16,3 +16,11 @@ ndarray = "0.13.1"
 ndarray-image = "0.2"
 ndarray-npy = "0.6.0"
 tensorrt-rs = { git = "https://github.com/vansweej/tensorrt-rs", branch = "windows_build" }
+
+[dev-dependencies]
+criterion = "0.3"
+pprof = { version = "0.3", features = ["flamegraph"] }
+
+[[bench]]
+name = "detect_benchmark"
+harness = false
