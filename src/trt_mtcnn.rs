@@ -14,7 +14,7 @@ pub struct Mtcnn {
 }
 
 impl Mtcnn {
-    pub fn new(engine_path: &str, logger: &Logger) -> Result<Mtcnn, String> {
+    pub fn new(engine_path: &str) -> Result<Mtcnn, String> {
         let log = Logger::new();
         
         let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &log)?;
@@ -52,19 +52,15 @@ impl Mtcnn {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helper::*;
 
     #[test]
     fn test_mtcnn_new() {
-        let logger = Logger::new();
-
-        let mt = Mtcnn::new("./test_resources", &logger);
+        let mt = Mtcnn::new("./test_resources");
     }
 
     #[test]
     fn test_detect() {
-        let logger = Logger::new();
-        let mt = Mtcnn::new("./test_resources", &logger).unwrap();
+        let mt = Mtcnn::new("./test_resources").unwrap();
 
         let img = image::open("test_resources/DSC_0003.JPG").unwrap();
 
