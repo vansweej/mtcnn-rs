@@ -10,6 +10,7 @@ use tensorrt_rs::runtime::*;
 pub struct Mtcnn {
     pnet: TrtPnet,
     rnet: TrtRnet,
+    mlogger: Logger,
 }
 
 impl Mtcnn {
@@ -22,6 +23,7 @@ impl Mtcnn {
         Ok(Mtcnn {
             pnet: pnet_t,
             rnet: rnet_t,
+            mlogger: log,
         })
     }
 
