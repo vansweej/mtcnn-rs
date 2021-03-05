@@ -113,7 +113,30 @@ dependencies = [
  "cfg-if 0.1.10",
  "clang-sys",
  "clap",
- "env_logger",
+ "env_logger 0.7.1",
+ "lazy_static",
+ "lazycell",
+ "log",
+ "peeking_take_while",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "rustc-hash",
+ "shlex",
+ "which",
+]
+
+[[package]]
+name = "bindgen"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd4865004a46a0aafb2a0a5eb19d3c9fc46ee5f063a6cfc605c69ac9ecf5263d"
+dependencies = [
+ "bitflags",
+ "cexpr",
+ "clang-sys",
+ "clap",
+ "env_logger 0.8.3",
  "lazy_static",
  "lazycell",
  "log",
@@ -227,9 +250,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "clang-sys"
-version = "1.0.3"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0659001ab56b791be01d4b729c44376edc6718cf389a502e579b77b758f3296c"
+checksum = "5cb92721cb37482245ed88428f72253ce422b3b4ee169c70a0642521bb5db4cc"
 dependencies = [
  "glob",
  "libc",
@@ -423,6 +446,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuda-sys"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b34be17513126fc87acdbb851bc430fdcdbfcd2945eb4e38171d4e1601cae6c3"
+
+[[package]]
 name = "custom_derive"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -469,7 +498,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "44533bbbb3bb3c1fa17d9f2e4e38bbbaf8396ba82193c4cb1b6445d711445d36"
 dependencies = [
  "atty",
- "humantime",
+ "humantime 1.3.0",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17392a012ea30ef05a610aa97dfb49496e71c9f676b27879922ea5bdf60d9d3f"
+dependencies = [
+ "atty",
+ "humantime 2.1.0",
  "log",
  "regex",
  "termcolor",
@@ -575,6 +617,12 @@ checksum = "df004cfca50ef23c36850aaaa59ad52cc70d0e90243c3c7737a4dd32dc7a3c4f"
 dependencies = [
  "quick-error",
 ]
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "image"
@@ -814,7 +862,11 @@ dependencies = [
  "ndarray",
  "ndarray-image",
  "ndarray-npy",
+ "npp-rs",
  "pprof",
+ "rustacuda",
+ "rustacuda_core",
+ "rustacuda_derive",
  "tensorrt-rs",
 ]
 
@@ -881,6 +933,27 @@ checksum = "ffb4262d26ed83a1c0a33a38fe2bb15797329c85770da05e6b828ddb782627af"
 dependencies = [
  "memchr",
  "version_check",
+]
+
+[[package]]
+name = "npp-rs"
+version = "0.1.0"
+source = "git+https://github.com/vansweej/npp-rs.git?branch=main#80796f118784014287c14dab7240f37b113c6bca"
+dependencies = [
+ "cuda-runtime-sys",
+ "image",
+ "npp-sys",
+ "rustacuda",
+ "rustacuda_core",
+ "rustacuda_derive",
+]
+
+[[package]]
+name = "npp-sys"
+version = "0.1.0"
+source = "git+https://github.com/vansweej/npp-rs.git?branch=main#80796f118784014287c14dab7240f37b113c6bca"
+dependencies = [
+ "bindgen 0.57.0",
 ]
 
 [[package]]
@@ -1068,14 +1141,14 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ccb628cad4f84851442432c60ad8e1f607e29752d0bf072cbd0baf28aa34272"
+checksum = "fa7a782938e745763fe6907fc6ba86946d72f49fe7e21de074e08128a99fb018"
 dependencies = [
  "cfg-if 1.0.0",
  "instant",
  "libc",
- "redox_syscall 0.1.57",
+ "redox_syscall",
  "smallvec",
  "winapi",
 ]
@@ -1232,9 +1305,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.8"
+version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "991431c3519a3f36861882da93630ce66b52918dcf1b8e2fd66b397fc96f28df"
+checksum = "c3d0b9745dc2debf507c8422de05d7226cc1f0644216dfdfead988f9b1ab32a7"
 dependencies = [
  "proc-macro2",
 ]
@@ -1368,12 +1441,6 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.1.57"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41cc0f7e4d5d4544e8861606a285bb08d3e70712ccc7d2b84d7c0ccfaf4b05ce"
-
-[[package]]
-name = "redox_syscall"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ec8ca9416c5ea37062b502703cd7fcb207736bc294f6e0cf367ac6fc234570"
@@ -1434,6 +1501,35 @@ checksum = "04ada202c9685e1d72a7420c578e92b358dbf807d3dfabb676a3dab9cc3bb12f"
 dependencies = [
  "matrixmultiply 0.1.15",
  "num 0.1.42",
+]
+
+[[package]]
+name = "rustacuda"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0791040f6a5783dc54dda2b37a7ba61c8e10b35078d8e2e21154c2039f7900e"
+dependencies = [
+ "bitflags",
+ "cuda-sys",
+ "rustacuda_core",
+ "rustacuda_derive",
+]
+
+[[package]]
+name = "rustacuda_core"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3858b08976dc2f860c5efbbb48cdcb0d4fafca92a6ac0898465af16c0dbe848"
+
+[[package]]
+name = "rustacuda_derive"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43ce8670a1a1d0fc2514a3b846dacdb65646f9bd494b6674cfacbb4ce430bd7e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1632,7 +1728,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "rand 0.8.3",
- "redox_syscall 0.2.4",
+ "redox_syscall",
  "remove_dir_all",
  "winapi",
 ]
@@ -1660,7 +1756,7 @@ name = "tensorrt-sys"
 version = "0.4.0"
 source = "git+https://github.com/vansweej/tensorrt-rs?branch=windows_build#646b9128c6a6737a29d3f5ccd65c5c9d4c68f6cb"
 dependencies = [
- "bindgen",
+ "bindgen 0.55.1",
  "cmake",
  "libc",
 ]

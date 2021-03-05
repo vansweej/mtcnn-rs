@@ -1,6 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use mtcnn_rs::trt_mtcnn::*;
-use tensorrt_rs::runtime::*;
 
 mod perf;
 
@@ -9,8 +8,7 @@ mod perf;
 // then run the test for 30s: cargo bench --bench detect_benchmark -- --profile-time=30
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let logger = Logger::new();
-    let mt = Mtcnn::new("./test_resources", &logger).unwrap();
+    let mt = Mtcnn::new("./test_resources").unwrap();
 
     let img = image::open("test_resources/DSC_0003.JPG").unwrap();
 

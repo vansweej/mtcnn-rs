@@ -4,19 +4,26 @@ extern crate image;
 use crate::trt_pnet::*;
 use crate::trt_rnet::*;
 use image::*;
-use ndarray::prelude::*;
+use ndarray::prelude::Axis;
+use rustacuda::prelude::*;
 use tensorrt_rs::runtime::*;
 
 pub struct Mtcnn {
     pnet: TrtPnet,
     rnet: TrtRnet,
     mlogger: Logger,
+    cuda_ctx: Context,
 }
 
 impl Mtcnn {
     pub fn new(engine_path: &str) -> Result<Mtcnn, String> {
+        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
+        let device = Device::get_device(0).unwrap();
+        let ctx =
+            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
+                .unwrap();
+
         let log = Logger::new();
-        
         let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &log)?;
         let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &log)?;
 
@@ -24,6 +31,7 @@ impl Mtcnn {
             pnet: pnet_t,
             rnet: rnet_t,
             mlogger: log,
+            cuda_ctx: ctx,
         })
     }
 
