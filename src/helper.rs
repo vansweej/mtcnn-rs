@@ -1,35 +1,10 @@
-use image::imageops::*;
-use image::*;
+use image::{ColorType, DynamicImage, GenericImageView, RgbImage};
 use ndarray::prelude::*;
-use show_image::*;
+use npp_rs::image::CudaImage;
+use npp_rs::imageops::resize;
+use rustacuda::error::CudaError;
 use std::cmp;
-use std::time::Duration;
-
-pub fn display_image(image: impl ImageData) {
-    // Create a window and display the image.
-    let options = WindowOptions {
-        name: "image".to_string(),
-        size: [384, 710],
-        resizable: true,
-        preserve_aspect_ratio: false,
-    };
-
-    let window = make_window_full(options).unwrap();
-    window.set_image(image, "image-001").unwrap();
-
-    // Print keyboard events until Escape is pressed, then exit.
-    // If the user closes the window, wait_key() will return an error and the loop also exits.
-    while let Ok(event) = window.wait_key(Duration::from_millis(100)) {
-        if let Some(event) = event {
-            if event.key == KeyCode::Escape {
-                break;
-            }
-        }
-    }
-
-    // Make sure all background tasks are stopped cleanly.
-    //show_image::stop().unwrap();
-}
+use std::convert::TryFrom;
 
 // Some numpy functions
 pub fn maximum<A, D>(num: &A, num_array: Array<A, D>) -> Array1<A>
@@ -186,10 +161,17 @@ pub fn rescale(image: &DynamicImage, min_size: u32) -> (RgbImage, u32) {
             return min_size;
         }
     };
-    (
-        image.resize(width, height, FilterType::Nearest).to_rgb8(),
-        ms(),
-    )
+    let img_layout_src = image.as_rgb8().unwrap().sample_layout();
+
+    let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
+
+    let mut cuda_dst = match img_layout_src.channels {
+        3 => CudaImage::<u8>::new(width, height, ColorType::Rgb8),
+        _ => Err(CudaError::UnknownError),
+    }
+    .unwrap();
+    let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
+    (RgbImage::try_from(&cuda_dst).unwrap(), ms())
 }
 
 #[cfg(test)]

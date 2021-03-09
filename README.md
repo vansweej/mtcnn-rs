@@ -7,3 +7,6 @@ Current development state:
 * Pnet functionality is written, needs to be integrated
 * Rnet not implemented yet
 * Onet not implemented yet
+
+Build create_engines for windows:
+nvcc -I ../common create_engines.cpp -o create_engines -lnvinfer -lnvparsers -lnvinfer_plugin

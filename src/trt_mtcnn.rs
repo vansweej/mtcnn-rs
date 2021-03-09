@@ -4,22 +4,34 @@ extern crate image;
 use crate::trt_pnet::*;
 use crate::trt_rnet::*;
 use image::*;
-use ndarray::prelude::*;
+use ndarray::prelude::Axis;
+use rustacuda::prelude::*;
 use tensorrt_rs::runtime::*;
 
 pub struct Mtcnn {
     pnet: TrtPnet,
     rnet: TrtRnet,
+    mlogger: Logger,
+    cuda_ctx: Context,
 }
 
 impl Mtcnn {
-    pub fn new(engine_path: &str, logger: &Logger) -> Result<Mtcnn, String> {
-        let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &logger)?;
-        let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &logger)?;
+    pub fn new(engine_path: &str) -> Result<Mtcnn, String> {
+        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
+        let device = Device::get_device(0).unwrap();
+        let ctx =
+            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
+                .unwrap();
+
+        let log = Logger::new();
+        let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &log)?;
+        let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &log)?;
 
         Ok(Mtcnn {
             pnet: pnet_t,
             rnet: rnet_t,
+            mlogger: log,
+            cuda_ctx: ctx,
         })
     }
 
@@ -48,19 +60,15 @@ impl Mtcnn {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::helper::*;
 
     #[test]
     fn test_mtcnn_new() {
-        let logger = Logger::new();
-
-        let mt = Mtcnn::new("./test_resources", &logger);
+        let mt = Mtcnn::new("./test_resources");
     }
 
     #[test]
     fn test_detect() {
-        let logger = Logger::new();
-        let mt = Mtcnn::new("./test_resources", &logger).unwrap();
+        let mt = Mtcnn::new("./test_resources").unwrap();
 
         let img = image::open("test_resources/DSC_0003.JPG").unwrap();
 
