@@ -178,6 +178,7 @@ pub fn rescale(image: &DynamicImage, min_size: u32) -> (RgbImage, u32) {
 mod tests {
     use super::*;
     use ndarray_npy::read_npy;
+    use rustacuda::prelude::*;
 
     #[test]
     fn test_nms() {
@@ -211,6 +212,12 @@ mod tests {
 
     #[test]
     fn test_rescale() {
+        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
+        let device = Device::get_device(0).unwrap();
+        let _ctx =
+            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
+                .unwrap();
+
         let img1 = image::open("test_resources/2020-11-21-144033.jpg").unwrap();
 
         let (scaled_image1, min_size) = rescale(&img1, 40);
@@ -225,6 +232,6 @@ mod tests {
 
         assert_eq!(min_size, 40);
         assert_eq!(scaled_image2.width(), 1076);
-        assert_eq!(scaled_image2.height(), 720);
+        assert_eq!(scaled_image2.height(), 721);
     }
 }

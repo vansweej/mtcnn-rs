@@ -3,6 +3,7 @@ use crate::helper::*;
 
 use image::imageops::*;
 use image::*;
+use itertools::*;
 use ndarray::prelude::*;
 use ndarray::s;
 use ndarray_image;
@@ -51,11 +52,11 @@ impl TrtRnet {
             .map(|v| v.0.max(*v.1))
             .collect::<Vec<_>>();
 
-        let boxes_1x1_t = boxes
+        let boxes_1x1 = boxes
             .axis_iter(Axis(0))
             .enumerate()
             .map(|(i, v)| {
-                [
+                vec![
                     f32::trunc(v[0] + ww[i] * 0.5 - mm[i] * 0.5),
                     f32::trunc(v[1] + hh[i] * 0.5 - mm[i] * 0.5),
                     f32::trunc((v[0] + ww[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0),
@@ -63,12 +64,14 @@ impl TrtRnet {
                     v[4],
                 ]
             })
-            .collect::<Vec<_>>();
-        let boxes_1x1 = Array::from_shape_vec(
-            (boxes.dim().0, boxes.dim().1),
-            boxes_1x1_t.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
-        )
-        .unwrap();
+            .concat()
+            .into_iter()
+            .collect::<Array<_, _>>()
+            .into_shape((boxes.dim().0, boxes.dim().1))
+            .unwrap();
+
+        println!("{:?}", boxes_1x1);
+
         boxes_1x1
     }
 
@@ -164,10 +167,10 @@ impl TrtRnet {
 
         let mut conv_crops: Vec<_> = vec![];
         for crop in crops.iter() {
-            let mut im_array: ndarray_image::NdColor = ndarray_image::NdImage(crop).into();
-            im_array.swap_axes(0, 2);
-            im_array.swap_axes(1, 2);
-            let pre_processed = im_array.map(|&x| ((x as f32) - PIXEL_MEAN) * PIXEL_SCALE);
+            let im_array: ndarray_image::NdColor = ndarray_image::NdImage(crop).into();
+            let pre_processed = im_array
+                .permuted_axes([2, 0, 1])
+                .map(|&x| ((x as f32) - PIXEL_MEAN) * PIXEL_SCALE);
             conv_crops.push(pre_processed);
         }
         let mut pre_processed = Array::from_shape_vec(
