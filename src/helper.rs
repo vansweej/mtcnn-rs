@@ -29,17 +29,6 @@ where
         .collect::<Array<_, _>>()
 }
 
-pub fn clamp<T: PartialOrd>(input: T, min: T, max: T) -> T {
-    debug_assert!(min <= max, "min must be less than or equal to max");
-    if input < min {
-        min
-    } else if input > max {
-        max
-    } else {
-        input
-    }
-}
-
 pub enum SuppressionType {
     Union,
     Min,
@@ -126,10 +115,10 @@ pub fn clip_dets(in_dets: &Array2<f32>, img_w: u32, img_h: u32) -> Array2<f32> {
         .axis_iter(Axis(0))
         .map(|v| {
             [
-                clamp(f32::trunc(v[0]), 0.0, (img_w - 1) as f32),
-                clamp(f32::trunc(v[1]), 0.0, (img_h - 1) as f32),
-                clamp(f32::trunc(v[2]), 0.0, (img_w - 1) as f32),
-                clamp(f32::trunc(v[3]), 0.0, (img_h - 1) as f32),
+                (f32::trunc(v[0])).clamp(0.0, (img_w - 1) as f32),
+                (f32::trunc(v[1])).clamp(0.0, (img_h - 1) as f32),
+                (f32::trunc(v[2])).clamp(0.0, (img_w - 1) as f32),
+                (f32::trunc(v[3])).clamp(0.0, (img_h - 1) as f32),
                 v[4],
             ]
         })

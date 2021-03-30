@@ -5,3 +5,5 @@ mod trt_pnet;
 mod trt_rnet;
 
 mod helper;
+
+mod image_ops;
