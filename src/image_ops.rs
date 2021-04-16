@@ -1,110 +1,74 @@
-extern crate modifier;
-
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView};
-use modifier::*;
+use npp_rs::image::CudaImage;
 use std::path::Path;
 use std::rc::Rc;
+use std::result::Result;
 
-pub struct Image {
-    value: Rc<DynamicImage>,
+macro_rules! img_op {
+    ($I:expr) => {
+        |img| $I.execute(img);
+    };
 }
 
-impl Set for Image {}
+trait image_op<T, E> {
+    fn execute(&self, img: Rc<T>) -> Result<Rc<T>, E>;
+}
 
-impl Image {
-    pub fn new(image: Rc<DynamicImage>) -> Image {
-        Image { value: image }
-    }
+struct rust_resize_op {
+    width: u32,
+    height: u32,
+}
 
-    pub fn from_path<P>(path: P) -> Image
-    where
-        P: AsRef<Path>,
-    {
-        Image {
-            value: Rc::new(image::open(path).unwrap()),
+impl rust_resize_op {
+    fn new(w: u32, h: u32) -> rust_resize_op {
+        rust_resize_op {
+            width: w,
+            height: h,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-/// Resize Modifier for `Image`
-pub struct Resize {
-    /// The resized width of the new Image
-    pub width: u32,
-    /// The resized heigt of the new Image
-    pub height: u32,
+impl image_op<DynamicImage, String> for rust_resize_op {
+    fn execute(&self, img: Rc<DynamicImage>) -> Result<Rc<DynamicImage>, String> {
+        Ok(Rc::new(img.resize(
+            self.width,
+            self.height,
+            FilterType::Nearest,
+        )))
+    }
 }
 
-impl Modifier<Image> for Resize {
-    fn modify(self, image: &mut Image) {
-        image.value = Rc::new(
-            image
-                .value
-                .resize(self.width, self.height, FilterType::Nearest),
-        )
-    }
+struct cuda_resize_op {
+    width: u32,
+    height: u32,
+    img: CudaImage<u8>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
 
     #[test]
-    fn test_image_from_dynamic_image() {
-        let dimg = Rc::new(image::open("test_resources/DSC_0003.JPG").unwrap());
-        let img = Image::new(Rc::clone(&dimg));
-        assert_eq!(img.value.width(), 3872);
-        assert_eq!(img.value.height(), 2592);
+    fn test_rustops() {
+        let resize1 = img_op!(rust_resize_op::new(1024, 768));
 
-        let op = Resize {
-            width: 640,
-            height: 480,
-        };
-        let img1 = img.set(op);
-        assert_eq!(img1.value.width(), 640);
-        assert_eq!(img1.value.height(), 428);
+        let resize2 = img_op!(rust_resize_op::new(800, 600));
 
-        let op2 = Resize {
-            width: 1024,
-            height: 768,
-        };
-        let img2 = Image::new(Rc::clone(&dimg));
-        let img3 = img2.set(op2);
-        assert_eq!(img3.value.width(), 1024);
-        assert_eq!(img3.value.height(), 685);
+        let resize3 = img_op!(rust_resize_op::new(640, 480));
 
-        let img4 = Image::new(Rc::clone(&dimg));
-        assert_eq!(img4.value.width(), 3872);
-        assert_eq!(img4.value.height(), 2592);
+        let img1 = Rc::new(image::open("test_resources/2020-11-21-144033.jpg").unwrap());
 
-        let img5 = img4.set((op, op2));
-        assert_eq!(img5.value.width(), 1024);
-        assert_eq!(img5.value.height(), 684);
+        let res = resize1(Rc::clone(&img1));
+        let res = resize1(Rc::clone(&img1));
 
-        let op_composed = (op, op2);
-    }
+        assert_eq!(res.is_ok(), true);
 
-    #[test]
-    fn test_image() {
-        let img = Image::from_path("test_resources/DSC_0003.JPG");
-        assert_eq!(img.value.width(), 3872);
-        assert_eq!(img.value.height(), 2592);
-
-        let op = Resize {
-            width: 640,
-            height: 480,
-        };
-        let img = img.set(op);
-        assert_eq!(img.value.width(), 640);
-        assert_eq!(img.value.height(), 428);
-
-        let op2 = Resize {
-            width: 1024,
-            height: 768,
-        };
-        let img = img.set(op2);
-        assert_eq!(img.value.width(), 1024);
-        assert_eq!(img.value.height(), 684);
+        let img2 = Rc::new(image::open("test_resources/DSC_0003.JPG").unwrap());
+        let res2 = resize1(Rc::clone(&img2))
+            .and_then(resize2)
+            .and_then(resize3);
+        assert_eq!(res2.is_ok(), true);
     }
 }

@@ -9,6 +9,7 @@ license = "MIT"
 
 # run tests in one thread: cargo test -- --test-threads 1
 # run tests with stdout: cargo test -- --nocapture
+# run with flamegraph: cargo bench --bench detect_benchmark -- --profile-time=30
 
 [dependencies]
 image = "0.23.12"
@@ -19,13 +20,13 @@ rustacuda = "0.1"
 rustacuda_core = "0.1"
 rustacuda_derive = "0.1"
 itertools = "0.10.0"
-modifier = "0.1"
 tensorrt-rs = { git = "https://github.com/vansweej/tensorrt-rs", branch = "windows_build" }
 npp-rs = { git = "https://github.com/vansweej/npp-rs.git", branch = "main" }
 
 [dev-dependencies]
 criterion = "0.3"
 pprof = { version = "0.3", features = ["flamegraph"] }
+pretty_assertions = "0.7.2"
 
 [[bench]]
 name = "detect_benchmark"
