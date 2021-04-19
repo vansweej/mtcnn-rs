@@ -543,14 +543,14 @@ checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
 
 [[package]]
 name = "flate2"
-version = "1.0.14"
+version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cfff41391129e0a856d6d822600b8d71179d46879e310417eb9c762eb178b42"
+checksum = "cd3aec53de10fe96d7d8c565eb17f2c687bb5518a2ec453b5b1252964526abe0"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "crc32fast",
  "libc",
- "miniz_oxide 0.3.7",
+ "miniz_oxide 0.4.4",
 ]
 
 [[package]]
@@ -958,7 +958,7 @@ dependencies = [
 [[package]]
 name = "npp-rs"
 version = "0.1.0"
-source = "git+https://github.com/vansweej/npp-rs.git?branch=main#a190a0d07cc223f3f5a1fe7ca9e3035aa3b3781d"
+source = "git+https://github.com/vansweej/npp-rs.git?branch=main#233559a9d352f67e86c669713bb1850b539ce445"
 dependencies = [
  "cuda-runtime-sys",
  "image",
@@ -971,7 +971,7 @@ dependencies = [
 [[package]]
 name = "npp-sys"
 version = "0.1.0"
-source = "git+https://github.com/vansweej/npp-rs.git?branch=main#a190a0d07cc223f3f5a1fe7ca9e3035aa3b3781d"
+source = "git+https://github.com/vansweej/npp-rs.git?branch=main#233559a9d352f67e86c669713bb1850b539ce445"
 dependencies = [
  "bindgen 0.57.0",
 ]
@@ -2012,9 +2012,9 @@ dependencies = [
 
 [[package]]
 name = "weezl"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a32b378380f4e9869b22f0b5177c68a5519f03b3454fde0b291455ddbae266c"
+checksum = "d8b77fdfd5a253be4ab714e4ffa3c49caf146b4de743e97510c0656cf90f1e8e"
 
 [[package]]
 name = "which"
@@ -2058,9 +2058,9 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "zip"
-version = "0.5.11"
+version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8264fcea9b7a036a4a5103d7153e988dbc2ebbafb34f68a3c2d404b6b82d74b6"
+checksum = "9c83dc9b784d252127720168abd71ea82bf8c3d96b17dc565b5e2a02854f2b27"
 dependencies = [
  "byteorder",
  "crc32fast",
