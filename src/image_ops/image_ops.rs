@@ -15,7 +15,7 @@ macro_rules! img_op {
 }
 
 trait ImageOp<T, E> {
-    fn execute(&self, img: Rc<T>) -> Result<Rc<T>, E>;
+    fn execute(&self, img: Rc<RefCell<T>>) -> Result<Rc<RefCell<T>>, E>;
 }
 
 struct RustResizeOp {
@@ -33,12 +33,12 @@ impl RustResizeOp {
 }
 
 impl ImageOp<DynamicImage, String> for RustResizeOp {
-    fn execute(&self, img: Rc<DynamicImage>) -> Result<Rc<DynamicImage>, String> {
-        Ok(Rc::new(img.resize(
+    fn execute(&self, img: Rc<RefCell<DynamicImage>>) -> Result<Rc<RefCell<DynamicImage>>, String> {
+        Ok(Rc::new(RefCell::new(img.borrow().resize(
             self.width,
             self.height,
             FilterType::Nearest,
-        )))
+        ))))
     }
 }
 
@@ -60,7 +60,7 @@ impl CudaResizeOp {
     }
 }
 
-impl ImageOp<RefCell<CudaImage<u8>>, CudaError> for CudaResizeOp {
+impl ImageOp<CudaImage<u8>, CudaError> for CudaResizeOp {
     fn execute(
         &self,
         img: Rc<RefCell<CudaImage<u8>>>,
@@ -90,14 +90,18 @@ mod tests {
 
         let resize3 = img_op!(RustResizeOp::new(640, 480));
 
-        let img1 = Rc::new(image::open("test_resources/2020-11-21-144033.jpg").unwrap());
+        let img1 = Rc::new(RefCell::new(
+            image::open("test_resources/2020-11-21-144033.jpg").unwrap(),
+        ));
 
         let res = resize1(Rc::clone(&img1));
         let res = resize1(Rc::clone(&img1));
 
         assert_eq!(res.is_ok(), true);
 
-        let img2 = Rc::new(image::open("test_resources/DSC_0003.JPG").unwrap());
+        let img2 = Rc::new(RefCell::new(
+            image::open("test_resources/DSC_0003.JPG").unwrap(),
+        ));
         let res2 = resize1(Rc::clone(&img2))
             .and_then(resize2)
             .and_then(resize3);
@@ -152,13 +156,8 @@ mod tests {
 
         assert_eq!(res2.is_ok(), true);
 
-        let o2 = res2.unwrap();
-        let r2 = Rc::try_unwrap(o2);
-
-        assert_eq!(r2.is_ok(), true);
-
-        let s2 = r2.unwrap();
-        let result_img2 = RgbImage::try_from(&s2.into_inner()).unwrap();
+        let r2 = Rc::try_unwrap(res2.unwrap()).unwrap().into_inner();
+        let result_img2 = RgbImage::try_from(&r2).unwrap();
 
         result_img2.save("/tmp/test2.png");
     }
