@@ -37,6 +37,7 @@ impl ImageOp<CudaImage<u8>, CudaError> for CudaResizeOp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::image_ops::*;
     use crate::img_op;
     use image::RgbImage;
     use pretty_assertions::{assert_eq, assert_ne};
@@ -65,19 +66,11 @@ mod tests {
 
         let res1 = resize1(Rc::clone(&cuda_src1))
             .and_then(resize2)
-            .and_then(resize3);
+            .and_then(resize3)
+            .and_then(cuda::into_inner);
 
-        assert_eq!(res1.is_ok(), true);
-
-        let o = res1.unwrap();
-        let r = Rc::try_unwrap(o);
-
-        assert_eq!(r.is_ok(), true);
-
-        let s = r.unwrap();
-        let result_img = RgbImage::try_from(&s.into_inner()).unwrap();
-
-        result_img.save("/tmp/test1.png");
+        let result_img = res1.map(|c| RgbImage::try_from(&c)).unwrap().unwrap();
+        result_img.save("/tmp/test1.png").unwrap();
 
         let img2 = image::open("test_resources/DSC_0003.JPG").unwrap();
 
@@ -87,13 +80,11 @@ mod tests {
 
         let res2 = resize1(Rc::clone(&cuda_src2))
             .and_then(resize2)
-            .and_then(resize3);
+            .and_then(resize3)
+            .and_then(cuda::into_inner);
 
-        assert_eq!(res2.is_ok(), true);
+        let result_img2 = res2.map(|c| RgbImage::try_from(&c)).unwrap().unwrap();
 
-        let r2 = Rc::try_unwrap(res2.unwrap()).unwrap().into_inner();
-        let result_img2 = RgbImage::try_from(&r2).unwrap();
-
-        result_img2.save("/tmp/test2.png");
+        result_img2.save("/tmp/test2.png").unwrap();
     }
 }
