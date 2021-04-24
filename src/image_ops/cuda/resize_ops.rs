@@ -7,12 +7,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::result::Result;
 
-struct CudaResizeOp {
+pub struct CudaResizeOp {
     image: Rc<RefCell<CudaImage<u8>>>,
 }
 
 impl CudaResizeOp {
-    fn new(w: u32, h: u32) -> CudaResizeOp {
+    pub fn new(w: u32, h: u32) -> CudaResizeOp {
         CudaResizeOp {
             image: Rc::new(RefCell::new(
                 CudaImage::<u8>::new(w, h, ColorType::Rgb8).unwrap(),
@@ -66,7 +66,6 @@ mod tests {
 
         let res1 = resize1(Rc::clone(&cuda_src1))
             .and_then(resize2)
-            .and_then(resize3)
             .and_then(cuda::into_inner);
 
         let result_img = res1.map(|c| RgbImage::try_from(&c)).unwrap().unwrap();

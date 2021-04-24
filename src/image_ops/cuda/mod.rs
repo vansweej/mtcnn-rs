@@ -10,3 +10,5 @@ fn into_inner(
 }
 
 mod resize_ops;
+
+mod factory;
