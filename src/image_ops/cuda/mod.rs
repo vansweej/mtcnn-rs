@@ -9,6 +9,6 @@ fn into_inner(
     }
 }
 
-mod resize_ops;
+pub mod resize_ops;
 
-mod factory;
+pub mod factory;

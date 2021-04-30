@@ -7,12 +7,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::result::Result;
 
-pub struct CudaResizeOp {
-    image: Rc<RefCell<CudaImage<u8>>>,
+pub struct CudaResizeOp<T> {
+    image: Rc<RefCell<T>>,
 }
 
-impl CudaResizeOp {
-    pub fn new(w: u32, h: u32) -> CudaResizeOp {
+impl CudaResizeOp<CudaImage<u8>> {
+    pub fn new(w: u32, h: u32) -> CudaResizeOp<CudaImage<u8>> {
         CudaResizeOp {
             image: Rc::new(RefCell::new(
                 CudaImage::<u8>::new(w, h, ColorType::Rgb8).unwrap(),
@@ -21,7 +21,7 @@ impl CudaResizeOp {
     }
 }
 
-impl ImageOp<CudaImage<u8>, CudaError> for CudaResizeOp {
+impl ImageOp<CudaImage<u8>, CudaError> for CudaResizeOp<CudaImage<u8>> {
     fn execute(
         &self,
         img: Rc<RefCell<CudaImage<u8>>>,
