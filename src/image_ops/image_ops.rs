@@ -1,6 +1,4 @@
 use crate::image_ops::cuda::factory::*;
-use npp_rs::image::CudaImage;
-use rustacuda::error::CudaError;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::result::Result;
@@ -21,14 +19,21 @@ pub enum ImageOpsType {
 }
 
 pub enum FactoryType {
-    CudaFactory(CudaFactory),
+    CudaType(CudaFactory),
 }
 
-impl FactoryType {
-    fn create_resize_imageop(&self, w: u32, h: u32) -> Box<dyn ImageOp<CudaImage<u8>, CudaError>> {
-        match self {
-            FactoryType::CudaFactory(cuda_factory) => cuda_factory.create_resize_imageop(w, h),
-        }
+trait CudaFactoryType {
+    fn create_resize_imageop(&self, w: u32, h: u32) -> CudaImageOp;
+}
+
+impl CudaFactoryType for FactoryType {
+    fn create_resize_imageop(&self, w: u32, h: u32) -> CudaImageOp {
+        let out = if let FactoryType::CudaType(cuda_factory) = self {
+            Some(cuda_factory.create_resize_imageop(w, h))
+        } else {
+            None
+        };
+        out.unwrap()
     }
 }
 
@@ -37,7 +42,7 @@ struct AbstractImageOpFactory {}
 impl AbstractImageOpFactory {
     fn create_imageop_factory(image_op_type: ImageOpsType) -> FactoryType {
         match image_op_type {
-            ImageOpsType::Cuda => FactoryType::CudaFactory(Box::new(CudaImageOpFactory {})),
+            ImageOpsType::Cuda => FactoryType::CudaType(Box::new(CudaImageOpFactory {})),
         }
     }
 }

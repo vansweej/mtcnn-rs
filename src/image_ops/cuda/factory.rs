@@ -4,11 +4,12 @@ use npp_rs::image::CudaImage;
 use rustacuda::error::CudaError;
 
 pub type CudaFactory = Box<dyn ImageOpFactory<CudaImage<u8>, CudaError>>;
+pub type CudaImageOp = Box<dyn ImageOp<CudaImage<u8>, CudaError>>;
 
 pub struct CudaImageOpFactory {}
 
 impl ImageResizeOpFactory<CudaImage<u8>, CudaError> for CudaImageOpFactory {
-    fn create_resize_imageop(&self, w: u32, h: u32) -> Box<dyn ImageOp<CudaImage<u8>, CudaError>> {
+    fn create_resize_imageop(&self, w: u32, h: u32) -> CudaImageOp {
         Box::new(CudaResizeOp::new(w, h))
     }
 }
