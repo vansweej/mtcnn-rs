@@ -40,17 +40,13 @@ mod tests {
     use crate::image_ops::*;
     use crate::img_op;
     use image::RgbImage;
-    use pretty_assertions::{assert_eq, assert_ne};
-    use rustacuda::prelude::*;
+    use npp_rs::cuda::initialize_cuda_device;
+    use pretty_assertions::assert_eq;
     use std::convert::TryFrom;
 
     #[test]
     fn test_cuda_resize_op() {
-        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
-        let device = Device::get_device(0).unwrap();
-        let _ctx =
-            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
-                .unwrap();
+        let _ctx = initialize_cuda_device().unwrap();
 
         let resize1 = img_op!(CudaResizeOp::new(1024, 768));
 
