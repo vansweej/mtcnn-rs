@@ -64,26 +64,23 @@ mod tests {
             CudaImage::try_from(img1.as_rgb8().unwrap()).unwrap(),
         ));
 
-        let res1 = resize1(Rc::clone(&cuda_src1))
-            .and_then(resize2)
-            .and_then(cuda::into_inner);
+        let res1 = resize1(Rc::clone(&cuda_src1)).and_then(cuda::into_inner);
 
-        let result_img = res1.map(|c| RgbImage::try_from(&c)).unwrap().unwrap();
-        result_img.save("/tmp/test1.png").unwrap();
+        let result_img1 = res1.map(|c| RgbImage::try_from(&c)).unwrap().unwrap();
 
-        let img2 = image::open("test_resources/DSC_0003.JPG").unwrap();
+        let dim1 = result_img1.dimensions();
+        assert_eq!(dim1.0, 1024);
+        assert_eq!(dim1.1, 768);
 
-        let cuda_src2 = Rc::new(RefCell::new(
-            CudaImage::try_from(img2.as_rgb8().unwrap()).unwrap(),
-        ));
-
-        let res2 = resize1(Rc::clone(&cuda_src2))
+        let res2 = resize1(Rc::clone(&cuda_src1))
             .and_then(resize2)
             .and_then(resize3)
             .and_then(cuda::into_inner);
 
         let result_img2 = res2.map(|c| RgbImage::try_from(&c)).unwrap().unwrap();
 
-        result_img2.save("/tmp/test2.png").unwrap();
+        let dim2 = result_img2.dimensions();
+        assert_eq!(dim2.0, 640);
+        assert_eq!(dim2.1, 480);
     }
 }
