@@ -16,6 +16,7 @@ pub struct Mtcnn {
     pnet: TrtPnet,
     rnet: TrtRnet,
     mlogger: Logger,
+    scaled_img: CudaImage<u8>,
     cuda_ctx: Context,
 }
 
@@ -30,11 +31,13 @@ impl Mtcnn {
         let log = Logger::new();
         let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &log)?;
         let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &log)?;
+        let img = CudaImage::<u8>::new(1280, 720, ColorType::Rgb8).unwrap();
 
         Ok(Mtcnn {
             pnet: pnet_t,
             rnet: rnet_t,
             mlogger: log,
+            scaled_img: img,
             cuda_ctx: ctx,
         })
     }
@@ -81,12 +84,42 @@ impl Mtcnn {
 
         let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
 
-        let mut cuda_dst = match img_layout_src.channels {
-            3 => CudaImage::<u8>::new(width, height, ColorType::Rgb8),
-            _ => Err(CudaError::UnknownError),
-        }
-            .unwrap();
+        let mut cuda_dst = self.scaled_img.sub_image(1, 1, width.clamp(1, 1278), height.clamp(1, 718)).unwrap();
         let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
         (RgbImage::try_from(&cuda_dst).unwrap(), ms())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray_npy::read_npy;
+    use rustacuda::prelude::*;
+
+    #[test]
+    fn test_rescale() {
+        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
+        let device = Device::get_device(0).unwrap();
+        let _ctx =
+            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
+                .unwrap();
+
+        let mt = Mtcnn::new("./test_resources").unwrap();
+
+        let img1 = image::open("test_resources/2020-11-21-144033.jpg").unwrap();
+
+        let (scaled_image1, min_size) = mt.rescale(&img1, 40);
+
+        assert_eq!(min_size, 40);
+        assert_eq!(scaled_image1.width(), 640);
+        assert_eq!(scaled_image1.height(), 360);
+
+        let img2 = image::open("test_resources/DSC_0003.JPG").unwrap();
+
+        let (scaled_image2, min_size) = mt.rescale(&img2, 40);
+
+        assert_eq!(min_size, 40);
+        assert_eq!(scaled_image2.width(), 1076);
+        assert_eq!(scaled_image2.height(), 718);
     }
 }

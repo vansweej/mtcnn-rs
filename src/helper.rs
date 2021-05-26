@@ -198,29 +198,4 @@ mod tests {
 
         assert_eq!(dts, dets);
     }
-
-    #[test]
-    fn test_rescale() {
-        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
-        let device = Device::get_device(0).unwrap();
-        let _ctx =
-            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
-                .unwrap();
-
-        let img1 = image::open("test_resources/2020-11-21-144033.jpg").unwrap();
-
-        let (scaled_image1, min_size) = rescale(&img1, 40);
-
-        assert_eq!(min_size, 40);
-        assert_eq!(scaled_image1.width(), 640);
-        assert_eq!(scaled_image1.height(), 360);
-
-        let img2 = image::open("test_resources/DSC_0003.JPG").unwrap();
-
-        let (scaled_image2, min_size) = rescale(&img2, 40);
-
-        assert_eq!(min_size, 40);
-        assert_eq!(scaled_image2.width(), 1076);
-        assert_eq!(scaled_image2.height(), 721);
-    }
 }
