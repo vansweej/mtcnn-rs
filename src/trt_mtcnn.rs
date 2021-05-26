@@ -80,7 +80,6 @@ impl Mtcnn {
                 return min_size;
             }
         };
-        let img_layout_src = image.as_rgb8().unwrap().sample_layout();
 
         let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
 
