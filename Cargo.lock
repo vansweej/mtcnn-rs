@@ -959,7 +959,7 @@ dependencies = [
 [[package]]
 name = "npp-rs"
 version = "0.1.0"
-source = "git+https://github.com/vansweej/npp-rs.git?branch=main#8260758243590310a987884fbe5cfced7d343e73"
+source = "git+https://github.com/vansweej/npp-rs.git?branch=main#5cbc0789ccb4030dca9731b61384004bbd834dc3"
 dependencies = [
  "cuda-runtime-sys",
  "image",
@@ -972,7 +972,7 @@ dependencies = [
 [[package]]
 name = "npp-sys"
 version = "0.1.0"
-source = "git+https://github.com/vansweej/npp-rs.git?branch=main#8260758243590310a987884fbe5cfced7d343e73"
+source = "git+https://github.com/vansweej/npp-rs.git?branch=main#5cbc0789ccb4030dca9731b61384004bbd834dc3"
 dependencies = [
  "bindgen 0.57.0",
 ]

@@ -1,6 +1,5 @@
 extern crate tensorrt_rs;
 use crate::helper::*;
-
 use image::imageops::*;
 use image::*;
 use ndarray::prelude::*;
@@ -11,11 +10,16 @@ use std::io::Read;
 use tensorrt_rs::context::ExecuteInput;
 use tensorrt_rs::engine::Engine;
 use tensorrt_rs::runtime::*;
+use npp_rs::image::{CudaImage, Persistable};
+use npp_rs::imageops::resize;
+use rustacuda::error::CudaError;
+use std::convert::TryFrom;
 
 pub struct TrtPnet {
     data_dims: (u32, u32, u32),
     prob1_dims: (u32, u32, u32),
     boxes_dims: (u32, u32, u32),
+    mipmapped_img: CudaImage<u8>,
     pnet_engine: Engine,
 }
 
@@ -27,11 +31,13 @@ impl TrtPnet {
         f.read_to_end(&mut pnet_buffer).unwrap();
         drop(f);
         let engine = runtime.deserialize_cuda_engine(pnet_buffer);
+        let img = CudaImage::<u8>::new(384, 710, ColorType::Rgb8).unwrap();
 
         Ok(TrtPnet {
             data_dims: (3, 710, 384),
             prob1_dims: (2, 350, 187),
             boxes_dims: (4, 350, 187),
+            mipmapped_img: img,
             pnet_engine: engine,
         })
     }
@@ -197,20 +203,20 @@ impl TrtPnet {
 
         let scales = get_scales(image.width(), image.height(), minsize, factor);
 
-        let mut im_data = DynamicImage::new_rgb8(384, 710);
+        let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
 
         for (i, scale) in scales.iter().enumerate() {
             let h_offset = INPUT_H_OFFSETS[i];
             let h = (image.height() as f64 * scale) as u32;
             let w = (image.width() as f64 * scale) as u32;
             {
-                let dst = image.resize(w, h, FilterType::Nearest);
-
-                im_data.copy_from(&dst, 0, h_offset).unwrap();
-                //display_image(&im_data);
+                let mut dst = self.mipmapped_img.sub_image(0, h_offset, w, h).unwrap();
+                let _res = resize(&cuda_src, &mut dst).unwrap();
             }
         }
-        let im_data_rgb = im_data.to_bgr8();
+        //self.mipmapped_img.save("mipmapped").unwrap();
+        let im_data_rgb = RgbImage::try_from(&self.mipmapped_img).unwrap();
+        //let im_data_rgb = im_data.to_bgr8();
         let mut im_array: ndarray_image::NdColor = ndarray_image::NdImage(&im_data_rgb).into();
 
         let pre_processed_t = im_array.permuted_axes([2, 0, 1]).map(|&x| {

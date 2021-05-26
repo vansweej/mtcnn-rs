@@ -84,7 +84,7 @@ impl Mtcnn {
 
         let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
 
-        let mut cuda_dst = self.scaled_img.sub_image(1, 1, width.clamp(1, 1278), height.clamp(1, 718)).unwrap();
+        let mut cuda_dst = self.scaled_img.sub_image(0, 0, width.clamp(1, 1280), height.clamp(1, 720)).unwrap();
         let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
         (RgbImage::try_from(&cuda_dst).unwrap(), ms())
     }
@@ -120,6 +120,6 @@ mod tests {
 
         assert_eq!(min_size, 40);
         assert_eq!(scaled_image2.width(), 1076);
-        assert_eq!(scaled_image2.height(), 718);
+        assert_eq!(scaled_image2.height(), 720);
     }
 }
