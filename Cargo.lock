@@ -132,15 +132,15 @@ dependencies = [
  "quote",
  "regex",
  "rustc-hash",
- "shlex",
+ "shlex 0.1.1",
  "which",
 ]
 
 [[package]]
 name = "bindgen"
-version = "0.57.0"
+version = "0.58.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd4865004a46a0aafb2a0a5eb19d3c9fc46ee5f063a6cfc605c69ac9ecf5263d"
+checksum = "0f8523b410d7187a43085e7e064416ea32ded16bd0a4e6fc025e21616d01258f"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -155,7 +155,7 @@ dependencies = [
  "quote",
  "regex",
  "rustc-hash",
- "shlex",
+ "shlex 1.0.0",
  "which",
 ]
 
@@ -200,9 +200,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.6.1"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63396b8a4b9de3f4fdfb320ab6080762242f66a8ef174c49d8e19b674db4cdbe"
+checksum = "9c59e7af012c713f529e7a3ee57ce9b31ddd858d4b512923602f74608b009631"
 
 [[package]]
 name = "byte-tools"
@@ -846,9 +846,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f83fb6581e8ed1f85fd45c116db8405483899489e38406156c25eb743554361d"
+checksum = "59accc507f1338036a0477ef61afdae33cde60840f4dfe481319ce3ad116ddf9"
 dependencies = [
  "autocfg",
 ]
@@ -958,10 +958,10 @@ dependencies = [
 
 [[package]]
 name = "npp-rs"
-version = "0.1.0"
-source = "git+https://github.com/vansweej/npp-rs.git?branch=main#5cbc0789ccb4030dca9731b61384004bbd834dc3"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9260dad75380a335b9845c19218f88d10ec82edb3e21000123103245b8e12da0"
 dependencies = [
- "cuda-runtime-sys",
  "image",
  "npp-sys",
  "rustacuda",
@@ -971,10 +971,11 @@ dependencies = [
 
 [[package]]
 name = "npp-sys"
-version = "0.1.0"
-source = "git+https://github.com/vansweej/npp-rs.git?branch=main#5cbc0789ccb4030dca9731b61384004bbd834dc3"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dab7b59fcf0a91e71dbd352d06db683e9acd1030b7477548a29375afab1a0f1"
 dependencies = [
- "bindgen 0.57.0",
+ "bindgen 0.58.1",
 ]
 
 [[package]]
@@ -1704,6 +1705,12 @@ name = "shlex"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
+
+[[package]]
+name = "shlex"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42a568c8f2cd051a4d283bd6eb0343ac214c1b0f1ac19f93e1175b2dee38c73d"
 
 [[package]]
 name = "smallvec"

@@ -1,22 +1,22 @@
-use crate::helper::*;
 extern crate image;
 use crate::trt_pnet::*;
 use crate::trt_rnet::*;
 use image::*;
 use ndarray::prelude::Axis;
-use rustacuda::prelude::*;
-use tensorrt_rs::runtime::*;
 use npp_rs::image::CudaImage;
 use npp_rs::imageops::resize;
-use rustacuda::error::CudaError;
-use std::convert::TryFrom;
+use rustacuda::prelude::*;
 use std::cmp;
+use std::convert::TryFrom;
+use tensorrt_rs::runtime::*;
 
 pub struct Mtcnn {
     pnet: TrtPnet,
     rnet: TrtRnet,
+    #[allow(dead_code)]
     mlogger: Logger,
     scaled_img: CudaImage<u8>,
+    #[allow(dead_code)]
     cuda_ctx: Context,
 }
 
@@ -75,15 +75,18 @@ impl Mtcnn {
         };
         let ms = || {
             if scale < 1.0 {
-                return cmp::max((min_size as f32 * scale).ceil() as u32, 40);
+                cmp::max((min_size as f32 * scale).ceil() as u32, 40)
             } else {
-                return min_size;
+                min_size
             }
         };
 
         let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
 
-        let mut cuda_dst = self.scaled_img.sub_image(0, 0, width.clamp(1, 1280), height.clamp(1, 720)).unwrap();
+        let mut cuda_dst = self
+            .scaled_img
+            .sub_image(0, 0, width.clamp(1, 1280), height.clamp(1, 720))
+            .unwrap();
         let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
         (RgbImage::try_from(&cuda_dst).unwrap(), ms())
     }
@@ -92,8 +95,6 @@ impl Mtcnn {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray_npy::read_npy;
-    use rustacuda::prelude::*;
 
     #[test]
     fn test_rescale() {

@@ -20,8 +20,9 @@ rustacuda = "0.1"
 rustacuda_core = "0.1"
 rustacuda_derive = "0.1"
 itertools = "0.10.0"
+npp-rs = "0.0.1"
 tensorrt-rs = { git = "https://github.com/vansweej/tensorrt-rs", branch = "windows_build" }
-npp-rs = { git = "https://github.com/vansweej/npp-rs.git", branch = "main" }
+#npp-rs = { git = "https://github.com/vansweej/npp-rs.git", branch = "main" }
 
 [dev-dependencies]
 criterion = "0.3"

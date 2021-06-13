@@ -1,10 +1,5 @@
-use image::{ColorType, DynamicImage, GenericImageView, RgbImage};
 use ndarray::prelude::*;
-use npp_rs::image::CudaImage;
-use npp_rs::imageops::resize;
-use rustacuda::error::CudaError;
 use std::cmp;
-use std::convert::TryFrom;
 
 // Some numpy functions
 pub fn maximum<A, D>(num: &A, num_array: Array<A, D>) -> Array1<A>
@@ -31,6 +26,7 @@ where
 
 pub enum SuppressionType {
     Union,
+    #[allow(dead_code)]
     Min,
 }
 
@@ -62,7 +58,7 @@ pub fn nms(boxes: &Array2<f32>, threshold: f32, s_type: SuppressionType) -> Vec<
     let mut sorted_idx = boxes
         .slice(s![.., 4])
         .indexed_iter()
-        .map(|(index, &item)| index)
+        .map(|(index, &_item)| index)
         .collect::<Vec<usize>>();
     sorted_idx.sort_unstable_by(|a, b| boxes[[*a, 4]].partial_cmp(&boxes[[*b, 4]]).unwrap());
 
@@ -73,7 +69,7 @@ pub fn nms(boxes: &Array2<f32>, threshold: f32, s_type: SuppressionType) -> Vec<
 
     let mut pick: Vec<usize> = vec![];
     loop {
-        if sorted_idx.len() <= 0 {
+        if sorted_idx.is_empty() {
             break;
         }
 
@@ -126,48 +122,17 @@ pub fn clip_dets(in_dets: &Array2<f32>, img_w: u32, img_h: u32) -> Array2<f32> {
 
     let out_dets = Array::from_shape_vec(
         (in_dets.dim().0, in_dets.dim().1),
-        out_dets_t.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
+        out_dets_t.iter().flatten().copied().collect::<Vec<_>>(),
     )
     .unwrap();
 
     out_dets
 }
 
-pub fn rescale(image: &DynamicImage, min_size: u32) -> (RgbImage, u32) {
-    let scale = f32::min(720.0 / image.height() as f32, 1280.0 / image.width() as f32);
-    let (width, height) = if scale < 1.0 {
-        (
-            (image.width() as f32 * scale).ceil() as u32,
-            (image.height() as f32 * scale).ceil() as u32,
-        )
-    } else {
-        (image.width(), image.height())
-    };
-    let ms = || {
-        if scale < 1.0 {
-            return cmp::max((min_size as f32 * scale).ceil() as u32, 40);
-        } else {
-            return min_size;
-        }
-    };
-    let img_layout_src = image.as_rgb8().unwrap().sample_layout();
-
-    let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
-
-    let mut cuda_dst = match img_layout_src.channels {
-        3 => CudaImage::<u8>::new(width, height, ColorType::Rgb8),
-        _ => Err(CudaError::UnknownError),
-    }
-    .unwrap();
-    let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
-    (RgbImage::try_from(&cuda_dst).unwrap(), ms())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use ndarray_npy::read_npy;
-    use rustacuda::prelude::*;
 
     #[test]
     fn test_nms() {
@@ -179,7 +144,7 @@ mod tests {
         ];
 
         let scales = get_scales(1076, 720, 40, 0.709);
-        for (i, scale) in scales.iter().enumerate() {
+        for (i, _scale) in scales.iter().enumerate() {
             let pnetboxes: Array2<f32> =
                 read_npy(format!("test_resources/pnetboxes{}.npy", i)).unwrap();
             let pick = nms(&pnetboxes, 0.5, SuppressionType::Union);

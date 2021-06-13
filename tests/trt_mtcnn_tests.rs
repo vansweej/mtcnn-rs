@@ -2,7 +2,7 @@ use mtcnn_rs::trt_mtcnn::*;
 
 #[test]
 fn test_mtcnn_new() {
-    let mt = Mtcnn::new("./test_resources");
+    let _mt = Mtcnn::new("./test_resources");
 }
 
 #[test]

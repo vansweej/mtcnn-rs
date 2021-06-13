@@ -1,24 +1,21 @@
 extern crate tensorrt_rs;
 use crate::helper::*;
-use image::imageops::*;
 use image::*;
 use ndarray::prelude::*;
 use ndarray::{concatenate, s};
-use ndarray_image;
+use npp_rs::image::CudaImage;
+use npp_rs::imageops::resize;
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io::Read;
 use tensorrt_rs::context::ExecuteInput;
 use tensorrt_rs::engine::Engine;
 use tensorrt_rs::runtime::*;
-use npp_rs::image::{CudaImage, Persistable};
-use npp_rs::imageops::resize;
-use rustacuda::error::CudaError;
-use std::convert::TryFrom;
 
 pub struct TrtPnet {
-    data_dims: (u32, u32, u32),
-    prob1_dims: (u32, u32, u32),
-    boxes_dims: (u32, u32, u32),
+    // data_dims: (u32, u32, u32),
+    // prob1_dims: (u32, u32, u32),
+    // boxes_dims: (u32, u32, u32),
     mipmapped_img: CudaImage<u8>,
     pnet_engine: Engine,
 }
@@ -34,9 +31,9 @@ impl TrtPnet {
         let img = CudaImage::<u8>::new(384, 710, ColorType::Rgb8).unwrap();
 
         Ok(TrtPnet {
-            data_dims: (3, 710, 384),
-            prob1_dims: (2, 350, 187),
-            boxes_dims: (4, 350, 187),
+            // data_dims: (3, 710, 384),
+            // prob1_dims: (2, 350, 187),
+            // boxes_dims: (4, 350, 187),
             mipmapped_img: img,
             pnet_engine: engine,
         })
@@ -114,7 +111,7 @@ impl TrtPnet {
     fn extract_outputs(
         width: u32,
         height: u32,
-        scales: &Vec<f64>,
+        scales: &[f64],
         prob1: &Array3<f32>,
         boxes: &Array3<f32>,
         threshold: f32,
@@ -134,7 +131,7 @@ impl TrtPnet {
 
             if pnet_boxes.shape()[0] > 0 {
                 let pick = nms(&pnet_boxes, 0.5, SuppressionType::Union);
-                if pick.len() > 0 {
+                if !pick.is_empty() {
                     let boxes_slice = pick
                         .iter()
                         .map(|v| {
@@ -149,11 +146,11 @@ impl TrtPnet {
                         .collect::<Array<_, _>>()
                         .iter()
                         .flatten()
-                        .map(|v| *v)
+                        .copied()
                         .collect::<Array<_, _>>()
                         .into_shape((pick.len(), 5))
                         .unwrap();
-                    if boxes_slice.len() > 0 {
+                    if !boxes_slice.is_empty() {
                         total_boxes = concatenate![Axis(0), total_boxes, boxes_slice];
                     }
                 }
@@ -171,13 +168,12 @@ impl TrtPnet {
                 .collect::<Array<_, _>>()
                 .iter()
                 .flatten()
-                .map(|v| *v)
+                .copied()
                 .collect::<Array<_, _>>()
                 .into_shape((total_pick.len(), 5))
                 .unwrap();
 
-            let dets = clip_dets(&indexed_boxes, width, height);
-            dets
+            clip_dets(&indexed_boxes, width, height)
         }
     }
 
@@ -189,8 +185,8 @@ impl TrtPnet {
         threshold: f32,
     ) -> Array2<f32> {
         const INPUT_H_OFFSETS: [u32; 9] = [0, 216, 370, 478, 556, 610, 648, 676, 696];
-        const OUTPUT_H_OFFSETS: [i32; 9] = [0, 108, 185, 239, 278, 305, 324, 338, 348];
-        const MAX_N_SCALES: u8 = 9;
+        // const OUTPUT_H_OFFSETS: [i32; 9] = [0, 108, 185, 239, 278, 305, 324, 338, 348];
+        // const MAX_N_SCALES: u8 = 9;
         const PIXEL_MEAN: f32 = 127.5;
         const PIXEL_SCALE: f32 = 0.0078125;
 
@@ -217,7 +213,7 @@ impl TrtPnet {
         //self.mipmapped_img.save("mipmapped").unwrap();
         let im_data_rgb = RgbImage::try_from(&self.mipmapped_img).unwrap();
         //let im_data_rgb = im_data.to_bgr8();
-        let mut im_array: ndarray_image::NdColor = ndarray_image::NdImage(&im_data_rgb).into();
+        let im_array: ndarray_image::NdColor = ndarray_image::NdImage(&im_data_rgb).into();
 
         let pre_processed_t = im_array.permuted_axes([2, 0, 1]).map(|&x| {
             if x == 0 {
@@ -227,11 +223,11 @@ impl TrtPnet {
             }
         });
 
-        let mut proc: Vec<_> = vec![];
-        proc.push(pre_processed_t);
+        let proc: Vec<_> = vec![pre_processed_t];
+
         let mut pre_processed = Array::from_shape_vec(
             (1, 3, 710, 384),
-            proc.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
+            proc.iter().flatten().copied().collect::<Vec<_>>(),
         )
         .unwrap();
 
@@ -248,27 +244,23 @@ impl TrtPnet {
     }
 }
 
-impl Drop for TrtPnet {
-    fn drop(&mut self) {
-        drop(&self.pnet_engine);
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use ndarray::{Array, Array3};
     use ndarray_npy::read_npy;
+    use rustacuda::error::CudaError;
     use rustacuda::prelude::*;
+    use std::cmp;
 
     #[test]
     fn create_pnet() {
         let logger = Logger::new();
-        let pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
+        let _pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
 
-        assert_eq!(pnet.data_dims, (3, 710, 384));
-        assert_eq!(pnet.prob1_dims, (2, 350, 187));
-        assert_eq!(pnet.boxes_dims, (4, 350, 187));
+        // assert_eq!(pnet.data_dims, (3, 710, 384));
+        // assert_eq!(pnet.prob1_dims, (2, 350, 187));
+        // assert_eq!(pnet.boxes_dims, (4, 350, 187));
     }
 
     #[test]
@@ -290,7 +282,7 @@ mod tests {
         assert_eq!(scaled_image2.width(), 1076);
         assert_eq!(scaled_image2.height(), 721);
 
-        let dets = pnet.detect(
+        let _dets = pnet.detect(
             &DynamicImage::ImageRgb8(scaled_image2),
             min_size,
             0.709,
@@ -309,7 +301,7 @@ mod tests {
         let logger = Logger::new();
         let pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
 
-        let mut np_im_data: Array3<f32> = read_npy("test_resources/im_data.npy").unwrap();
+        let np_im_data: Array3<f32> = read_npy("test_resources/im_data.npy").unwrap();
 
         let np_boxes: Array3<f32> = read_npy("test_resources/boxes.npy").unwrap();
         let np_prob1: Array3<f32> = read_npy("test_resources/prob1.npy").unwrap();
@@ -337,7 +329,7 @@ mod tests {
         let np_boxes: Array3<f32> = read_npy("test_resources/boxes.npy").unwrap();
         let np_prob1: Array3<f32> = read_npy("test_resources/prob1.npy").unwrap();
 
-        let outputs = TrtPnet::extract_outputs(1076, 720, &scales, &np_prob1, &np_boxes, 0.7);
+        let _outputs = TrtPnet::extract_outputs(1076, 720, &scales, &np_prob1, &np_boxes, 0.7);
     }
 
     #[test]
@@ -351,5 +343,35 @@ mod tests {
             let boxes = TrtPnet::generate_pnet_bboxes(&pp, &cc, scale, 0.7);
             assert_eq!(boxes, pnetboxes);
         }
+    }
+
+    pub fn rescale(image: &DynamicImage, min_size: u32) -> (RgbImage, u32) {
+        let scale = f32::min(720.0 / image.height() as f32, 1280.0 / image.width() as f32);
+        let (width, height) = if scale < 1.0 {
+            (
+                (image.width() as f32 * scale).ceil() as u32,
+                (image.height() as f32 * scale).ceil() as u32,
+            )
+        } else {
+            (image.width(), image.height())
+        };
+        let ms = || {
+            if scale < 1.0 {
+                return cmp::max((min_size as f32 * scale).ceil() as u32, 40);
+            } else {
+                return min_size;
+            }
+        };
+        let img_layout_src = image.as_rgb8().unwrap().sample_layout();
+
+        let cuda_src = CudaImage::try_from(image.as_rgb8().unwrap()).unwrap();
+
+        let mut cuda_dst = match img_layout_src.channels {
+            3 => CudaImage::<u8>::new(width, height, ColorType::Rgb8),
+            _ => Err(CudaError::UnknownError),
+        }
+        .unwrap();
+        let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
+        (RgbImage::try_from(&cuda_dst).unwrap(), ms())
     }
 }

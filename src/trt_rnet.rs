@@ -3,10 +3,8 @@ use crate::helper::*;
 
 use image::imageops::*;
 use image::*;
-use itertools::*;
 use ndarray::prelude::*;
 use ndarray::s;
-use ndarray_image;
 use std::fs::File;
 use std::io::Read;
 use tensorrt_rs::context::ExecuteInput;
@@ -14,9 +12,9 @@ use tensorrt_rs::engine::Engine;
 use tensorrt_rs::runtime::*;
 
 pub struct TrtRnet {
-    data_dims: (u32, u32, u32),
-    prob1_dims: (u32, u32, u32),
-    boxes_dims: (u32, u32, u32),
+    // data_dims: (u32, u32, u32),
+    // prob1_dims: (u32, u32, u32),
+    // boxes_dims: (u32, u32, u32),
     rnet_engine: Engine,
 }
 
@@ -30,50 +28,50 @@ impl TrtRnet {
         let engine = runtime.deserialize_cuda_engine(pnet_buffer);
 
         Ok(TrtRnet {
-            data_dims: (3, 24, 24),
-            prob1_dims: (2, 1, 1),
-            boxes_dims: (4, 1, 1),
+            // data_dims: (3, 24, 24),
+            // prob1_dims: (2, 1, 1),
+            // boxes_dims: (4, 1, 1),
             rnet_engine: engine,
         })
     }
 
-    fn convert_to_1x1(boxes: &Array2<f32>) -> Array2<f32> {
-        let hh = boxes
-            .axis_iter(Axis(0))
-            .map(|v| v[3] - v[1] + 1.0)
-            .collect::<Vec<_>>();
-        let ww = boxes
-            .axis_iter(Axis(0))
-            .map(|v| v[2] - v[0] + 1.0)
-            .collect::<Vec<_>>();
-        let mm = hh
-            .iter()
-            .zip(&ww)
-            .map(|v| v.0.max(*v.1))
-            .collect::<Vec<_>>();
+    // fn convert_to_1x1(boxes: &Array2<f32>) -> Array2<f32> {
+    //     let hh = boxes
+    //         .axis_iter(Axis(0))
+    //         .map(|v| v[3] - v[1] + 1.0)
+    //         .collect::<Vec<_>>();
+    //     let ww = boxes
+    //         .axis_iter(Axis(0))
+    //         .map(|v| v[2] - v[0] + 1.0)
+    //         .collect::<Vec<_>>();
+    //     let mm = hh
+    //         .iter()
+    //         .zip(&ww)
+    //         .map(|v| v.0.max(*v.1))
+    //         .collect::<Vec<_>>();
 
-        let boxes_1x1 = boxes
-            .axis_iter(Axis(0))
-            .enumerate()
-            .map(|(i, v)| {
-                vec![
-                    f32::trunc(v[0] + ww[i] * 0.5 - mm[i] * 0.5),
-                    f32::trunc(v[1] + hh[i] * 0.5 - mm[i] * 0.5),
-                    f32::trunc((v[0] + ww[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0),
-                    f32::trunc((v[1] + hh[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0),
-                    v[4],
-                ]
-            })
-            .concat()
-            .into_iter()
-            .collect::<Array<_, _>>()
-            .into_shape((boxes.dim().0, boxes.dim().1))
-            .unwrap();
+    //     let boxes_1x1 = boxes
+    //         .axis_iter(Axis(0))
+    //         .enumerate()
+    //         .map(|(i, v)| {
+    //             vec![
+    //                 f32::trunc(v[0] + ww[i] * 0.5 - mm[i] * 0.5),
+    //                 f32::trunc(v[1] + hh[i] * 0.5 - mm[i] * 0.5),
+    //                 f32::trunc((v[0] + ww[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0),
+    //                 f32::trunc((v[1] + hh[i] * 0.5 - mm[i] * 0.5) + mm[i] - 1.0),
+    //                 v[4],
+    //             ]
+    //         })
+    //         .concat()
+    //         .into_iter()
+    //         .collect::<Array<_, _>>()
+    //         .into_shape((boxes.dim().0, boxes.dim().1))
+    //         .unwrap();
 
-        println!("{:?}", boxes_1x1);
+    //     println!("{:?}", boxes_1x1);
 
-        boxes_1x1
-    }
+    //     boxes_1x1
+    // }
 
     fn generate_rnet_bboxes(
         conf: &Array1<f32>,
@@ -91,8 +89,8 @@ impl TrtRnet {
         let reg_f = reg
             .axis_iter(Axis(0))
             .enumerate()
-            .filter(|(i, v)| conf[*i] > t)
-            .map(|(i, v)| v)
+            .filter(|(i, _v)| conf[*i] > t)
+            .map(|(_i, v)| v)
             .collect::<Vec<_>>();
 
         let mut s_boxes_t: Vec<_> = vec![];
@@ -110,7 +108,7 @@ impl TrtRnet {
 
         let s_boxes = Array::from_shape_vec(
             (boxes.len(), 5),
-            s_boxes_t.iter().flatten().map(|v| *v).collect(),
+            s_boxes_t.iter().flatten().copied().collect(),
         )
         .unwrap();
 
@@ -140,7 +138,7 @@ impl TrtRnet {
         &self,
         image: &DynamicImage,
         boxes: &Array2<f32>,
-        max_batch: u32,
+        _max_batch: u32,
         threshold: f32,
     ) -> Array2<f32> {
         const PIXEL_MEAN: f32 = 127.5;
@@ -153,7 +151,7 @@ impl TrtRnet {
 
         //display_image(image);
         let mut crops: Vec<_> = vec![];
-        for (i, det) in boxes.axis_iter(Axis(0)).enumerate() {
+        for det in boxes.axis_iter(Axis(0)) {
             let w = det[2] - det[0];
             let h = det[3] - det[1];
 
@@ -175,7 +173,7 @@ impl TrtRnet {
         }
         let mut pre_processed = Array::from_shape_vec(
             (conv_crops.len(), 3, 24, 24),
-            conv_crops.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
+            conv_crops.iter().flatten().copied().collect::<Vec<_>>(),
         )
         .unwrap();
 
@@ -198,12 +196,11 @@ impl TrtRnet {
             indexed_rnet_boxes_t
                 .iter()
                 .flatten()
-                .map(|v| *v)
+                .copied()
                 .collect::<Vec<_>>(),
         )
         .unwrap();
-        let dets = clip_dets(&indexed_rnet_boxes, image.width(), image.height());
-        dets
+        clip_dets(&indexed_rnet_boxes, image.width(), image.height())
     }
 }
 
@@ -212,14 +209,14 @@ mod tests {
     use super::*;
     use ndarray_npy::read_npy;
 
-    #[test]
-    fn test_convert_to_1x1() {
-        let boxes: Array2<f32> = read_npy("test_resources/dets.npy").unwrap();
-        let np_boxes_1x1: Array2<f32> = read_npy("test_resources/boxes_1x1.npy").unwrap();
-        let boxes_1x1 = TrtRnet::convert_to_1x1(&boxes);
+    // #[test]
+    // fn test_convert_to_1x1() {
+    //     let boxes: Array2<f32> = read_npy("test_resources/dets.npy").unwrap();
+    //     let np_boxes_1x1: Array2<f32> = read_npy("test_resources/boxes_1x1.npy").unwrap();
+    //     let boxes_1x1 = TrtRnet::convert_to_1x1(&boxes);
 
-        assert_eq!(np_boxes_1x1, boxes_1x1);
-    }
+    //     assert_eq!(np_boxes_1x1, boxes_1x1);
+    // }
 
     #[test]
     fn test_detect() {
