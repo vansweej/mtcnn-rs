@@ -4,11 +4,12 @@ use crate::trt_rnet::*;
 use image::*;
 use ndarray::prelude::Axis;
 use npp_rs::image::CudaImage;
-use npp_rs::imageops::resize;
 use rustacuda::prelude::*;
 use std::cmp;
 use std::convert::TryFrom;
+use npp_rs::resize_ops::ResizeInterpolation;
 use tensorrt_rs::runtime::*;
+use crate::build_engine::build_engine;
 
 pub struct Mtcnn {
     pnet: TrtPnet,
@@ -29,7 +30,7 @@ impl Mtcnn {
                 .unwrap();
 
         let log = Logger::new();
-        let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &log)?;
+        let pnet_t = TrtPnet::new(&std::format!("{}/det1.engine", engine_path)[..], &log, &build_engine)?;
         let rnet_t = TrtRnet::new(&std::format!("{}/det2.engine", engine_path)[..], &log)?;
         let img = CudaImage::<u8>::new(1280, 720, ColorType::Rgb8).unwrap();
 
@@ -87,7 +88,7 @@ impl Mtcnn {
             .scaled_img
             .sub_image(0, 0, width.clamp(1, 1280), height.clamp(1, 720))
             .unwrap();
-        let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
+        let _res = CudaImage::resize(&cuda_src, &mut cuda_dst, ResizeInterpolation::Linear).unwrap();
         (RgbImage::try_from(&cuda_dst).unwrap(), ms())
     }
 }

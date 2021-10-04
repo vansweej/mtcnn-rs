@@ -4,10 +4,8 @@ use image::*;
 use ndarray::prelude::*;
 use ndarray::{concatenate, s};
 use npp_rs::image::CudaImage;
-use npp_rs::imageops::resize;
 use std::convert::TryFrom;
-use std::fs::File;
-use std::io::Read;
+use npp_rs::resize_ops::ResizeInterpolation;
 use tensorrt_rs::context::ExecuteInput;
 use tensorrt_rs::engine::Engine;
 use tensorrt_rs::runtime::*;
@@ -21,21 +19,14 @@ pub struct TrtPnet {
 }
 
 impl TrtPnet {
-    pub fn new(engine_file: &str, logger: &Logger) -> Result<TrtPnet, String> {
-        let runtime = Runtime::new(&logger);
-        let mut f = File::open(engine_file).unwrap();
-        let mut pnet_buffer = Vec::new();
-        f.read_to_end(&mut pnet_buffer).unwrap();
-        drop(f);
-        let engine = runtime.deserialize_cuda_engine(pnet_buffer);
-        let img = CudaImage::<u8>::new(384, 710, ColorType::Rgb8).unwrap();
+    pub fn new(engine_file: &str, logger: &Logger, build: &impl Fn(&str, &Logger) -> Engine) -> Result<TrtPnet, String> {
 
         Ok(TrtPnet {
             // data_dims: (3, 710, 384),
             // prob1_dims: (2, 350, 187),
             // boxes_dims: (4, 350, 187),
-            mipmapped_img: img,
-            pnet_engine: engine,
+            mipmapped_img: CudaImage::<u8>::new(384, 710, ColorType::Rgb8).unwrap(),
+            pnet_engine: build(engine_file, logger),
         })
     }
 
@@ -207,7 +198,7 @@ impl TrtPnet {
             let w = (image.width() as f64 * scale) as u32;
             {
                 let mut dst = self.mipmapped_img.sub_image(0, h_offset, w, h).unwrap();
-                let _res = resize(&cuda_src, &mut dst).unwrap();
+                let _res = CudaImage::resize(&cuda_src, &mut dst, ResizeInterpolation::Linear).unwrap();
             }
         }
         //self.mipmapped_img.save("mipmapped").unwrap();
@@ -252,11 +243,14 @@ mod tests {
     use rustacuda::error::CudaError;
     use rustacuda::prelude::*;
     use std::cmp;
+    use npp_rs::cuda::initialize_cuda_device;
+    use crate::build_engine::build_engine;
 
     #[test]
     fn create_pnet() {
+        let _ctx = initialize_cuda_device();
         let logger = Logger::new();
-        let _pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
+        let _pnet = TrtPnet::new("./test_resources/det1.engine", &logger, &build_engine).unwrap();
 
         // assert_eq!(pnet.data_dims, (3, 710, 384));
         // assert_eq!(pnet.prob1_dims, (2, 350, 187));
@@ -272,7 +266,7 @@ mod tests {
                 .unwrap();
 
         let logger = Logger::new();
-        let pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
+        let pnet = TrtPnet::new("./test_resources/det1.engine", &logger, &build_engine).unwrap();
 
         let img2 = image::open("test_resources/DSC_0003.JPG").unwrap();
 
@@ -299,7 +293,7 @@ mod tests {
                 .unwrap();
 
         let logger = Logger::new();
-        let pnet = TrtPnet::new("./test_resources/det1.engine", &logger).unwrap();
+        let pnet = TrtPnet::new("./test_resources/det1.engine", &logger, &build_engine).unwrap();
 
         let np_im_data: Array3<f32> = read_npy("test_resources/im_data.npy").unwrap();
 
@@ -371,7 +365,7 @@ mod tests {
             _ => Err(CudaError::UnknownError),
         }
         .unwrap();
-        let _res = resize(&cuda_src, &mut cuda_dst).unwrap();
+        let _res = CudaImage::resize(&cuda_src, &mut cuda_dst, ResizeInterpolation::Linear).unwrap();
         (RgbImage::try_from(&cuda_dst).unwrap(), ms())
     }
 }
