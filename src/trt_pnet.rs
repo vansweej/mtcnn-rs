@@ -241,29 +241,22 @@ mod tests {
     use ndarray::{Array, Array3};
     use ndarray_npy::read_npy;
     use rustacuda::error::CudaError;
-    use rustacuda::prelude::*;
     use std::cmp;
     use npp_rs::cuda::initialize_cuda_device;
     use crate::build_engine::build_engine;
+    use crate::test::wrappers::tests::run_cuda_test;
 
     #[test]
     fn create_pnet() {
         let _ctx = initialize_cuda_device();
+
         let logger = Logger::new();
         let _pnet = TrtPnet::new("./test_resources/det1.engine", &logger, &build_engine).unwrap();
-
-        // assert_eq!(pnet.data_dims, (3, 710, 384));
-        // assert_eq!(pnet.prob1_dims, (2, 350, 187));
-        // assert_eq!(pnet.boxes_dims, (4, 350, 187));
     }
 
     #[test]
     fn test_pnet_detect() {
-        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
-        let device = Device::get_device(0).unwrap();
-        let _ctx =
-            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
-                .unwrap();
+        let _ctx = initialize_cuda_device();
 
         let logger = Logger::new();
         let pnet = TrtPnet::new("./test_resources/det1.engine", &logger, &build_engine).unwrap();
@@ -286,35 +279,30 @@ mod tests {
 
     #[test]
     fn test_pnet_execute() {
-        rustacuda::init(rustacuda::CudaFlags::empty()).unwrap();
-        let device = Device::get_device(0).unwrap();
-        let _ctx =
-            Context::create_and_push(ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)
-                .unwrap();
+        run_cuda_test(|| {
+            let logger = Logger::new();
+            let pnet = TrtPnet::new("./test_resources/det1.engine", &logger, &build_engine).unwrap();
 
-        let logger = Logger::new();
-        let pnet = TrtPnet::new("./test_resources/det1.engine", &logger, &build_engine).unwrap();
+            let np_im_data: Array3<f32> = read_npy("test_resources/im_data.npy").unwrap();
 
-        let np_im_data: Array3<f32> = read_npy("test_resources/im_data.npy").unwrap();
+            let np_boxes: Array3<f32> = read_npy("test_resources/boxes.npy").unwrap();
+            let np_prob1: Array3<f32> = read_npy("test_resources/prob1.npy").unwrap();
 
-        let np_boxes: Array3<f32> = read_npy("test_resources/boxes.npy").unwrap();
-        let np_prob1: Array3<f32> = read_npy("test_resources/prob1.npy").unwrap();
+            let mut proc: Vec<_> = vec![];
+            proc.push(np_im_data);
+            let mut pre_processed = Array::from_shape_vec(
+                (1, 3, 710, 384),
+                proc.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
+            ).unwrap();
 
-        let mut proc: Vec<_> = vec![];
-        proc.push(np_im_data);
-        let mut pre_processed = Array::from_shape_vec(
-            (1, 3, 710, 384),
-            proc.iter().flatten().map(|v| *v).collect::<Vec<_>>(),
-        )
-        .unwrap();
+            let (prob1, boxes) = pnet.execute(&mut pre_processed);
 
-        let (prob1, boxes) = pnet.execute(&mut pre_processed);
+            assert_eq!(prob1.dim(), np_prob1.dim());
+            assert_eq!(boxes.dim(), np_boxes.dim());
 
-        assert_eq!(prob1.dim(), np_prob1.dim());
-        assert_eq!(boxes.dim(), np_boxes.dim());
-
-        //assert_eq!(boxes, np_boxes);
-        //     assert_eq!(prob1, np_prob1);
+            //assert_eq!(boxes, np_boxes);
+            assert!(prob1.relative_eq(&np_prob1, f32::EPSILON, 0.04305));
+        });
     }
 
     #[test]
